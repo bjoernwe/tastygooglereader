@@ -98,7 +98,7 @@ TastyTracingListener.prototype =
 			   
 			binaryInputStream.setInputStream( inputStream );
 
-			// Copy received data as they come.
+			/// append received data to data array
 			var data = binaryInputStream.readBytes(count);
 			this.receivedData.push(data);
 			var s = this.receivedData.join("");
@@ -106,15 +106,20 @@ TastyTracingListener.prototype =
 			/// reached the end of the JSON encoded news?
 			if( s.substr( s.length-4, 4 ) == "}}]}" ) {
 			
+				/// sort response and re-code it
 				var response = JSON.parse( s );
-				response = TastyGoogleReader.sortResponse( response );          
+				TastyGoogleReader.sortResponse( response );          
 				s = JSON.stringify( response );
-				dump( this.tabId + "\n" );
 			
+				/// hand on the sorted response
 				storageStream.init( 8192, s.length, null );
 				binaryOutputStream.setOutputStream( storageStream.getOutputStream(0) );
 				binaryOutputStream.writeBytes( s, s.length );
 				this.originalListener.onDataAvailable( request, context, storageStream.newInputStream(0), 0, s.length );
+				
+				/// remember response with it's tabId
+				response.tabId = this.tabId;
+				TastyGoogleReader.rememberResponse( response );
 			}
 
 		} catch(e) {
@@ -145,18 +150,61 @@ TastyTracingListener.prototype =
 var TastyGoogleReader =
 {
   
-	tabList: 	null,
-	itemList: 	null,
+	responseList: 	[],
 
 	// initialization code
 	onLoad: function() {
 		TastyRequestObserver.register();
 		gBrowser.tabContainer.addEventListener( "TabClose", TastyGoogleReader.onTabRemoved, false );
 	},
-  
+	
+	/**
+	 * returns true if there are response for this tabId
+	 */
+	knowsResponse: function( tabId ) {
+		
+		var i;
+		for( i = 0; i < this.responseList.length; i++ ) {
+			if( this.responseList[i].tabId == tabId )
+				return true;
+		}
+		
+		return false;
+	},
+	
+	/**
+	 * removes response with the given tabId from list
+	 */
+	removeResponse: function( tabId ) {
+		
+		var i;
+		for( i = 0; i < this.responseList.length; i++ ) {
+			if( this.responseList[i].tabId == tabId ) {
+				this.responseList.splice( i, 1 );
+				return true;
+			}
+		}
+		
+		return;
+	},
+	
+	/**
+	 * saves response in responseList. if there's already a response
+	 * with this tabId it will be removed.
+	 */
+	rememberResponse: function( response ) {
+		this.removeResponse( response.tabId );
+		this.responseList.push( response );
+		return;
+	},
+	
+	/**
+	 * event handler vor removed tabs
+	 */
 	onTabRemoved: function( event ) {
-		var browser = event.target.linkedBrowser;
-		dump( "id: " + event.target.linkedBrowser.parentNode.id + "\n" );
+		var tabId = event.target.linkedBrowser.parentNode.id;
+		this.removeResponse( tabId );
+		return;
 	},
   
 	/**
@@ -182,7 +230,9 @@ var TastyGoogleReader =
 				var w = wordList[j];
 				dbConn.executeSimpleSQL( "INSERT OR REPLACE INTO Words VALUES ( '" + w + "', ( SELECT good+1 FROM Words WHERE word = '" + w + "' ), ( SELECT bad FROM Words WHERE word = '" + w + "' ) )" );
 			}
-		  
+		
+			/// test
+			response.items[i].title = response.items[i].title.toUpperCase();
 		}
 
 		return response;

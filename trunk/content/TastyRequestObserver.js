@@ -61,11 +61,11 @@ var TastyRequestObserver =
 				} else if( url.search( this.googleReaderApiMarkAllRead ) > -1 ) {
 					
 					dump( "mark all as read\n" );
+					TastyGoogleReader.markAllAsRead( tabId );
 										
 				} else if( url.search( this.googleReaderApiEditTag ) > -1 ) {
 					
 					dump( "edit tag\n" );
-					TastyGoogleReader.stream = subject;
 					dump( url + "\n" );
 					dump( parameters + "\n" );
 					
@@ -80,6 +80,7 @@ var TastyRequestObserver =
 							TastyGoogleReader.markItemAsRead( tabId, itemId );
 							break;
 						case "kept-unread":
+							TastyGoogleReader.markItemAsUnread( tabId, itemId );
 							break;
 						default:
 							break;

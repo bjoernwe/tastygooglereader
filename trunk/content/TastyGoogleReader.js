@@ -179,6 +179,10 @@ var TastyGoogleReader =
 		return this.dbConn;
 	},
 
+    /**
+	 * marks a given item as read in the response list and updates the 
+	 * keywords in DB accordingly
+	 */
 	markItemAsRead: function( tabId, itemId ) {
 		
 		this.getDbConn();
@@ -200,12 +204,7 @@ var TastyGoogleReader =
 					if( item.id == itemId && item.read != true ) {
 						
 						/// mark as read
-						
-						for( var w = 0; w < item.keywords.length; w++ ) {
-							var word = item.keywords[w];
-							this.dbConn.executeSimpleSQL( "INSERT OR REPLACE INTO Words VALUES ( '" + word + "', ( SELECT good+1 FROM Words WHERE word = '" + word + "' ), ( SELECT bad FROM Words WHERE word = '" + word + "' ) )" );
-						}
-						
+						TastyGoogleReader.increaseGoodCounter( item.keywords );
 						item.read = true;
 						break;	/// okay, finished with that item!
 					}
@@ -219,7 +218,155 @@ var TastyGoogleReader =
 		} /// for every response
 		
 		return;
-	}
+	},
+
+	
+    /**
+	 * marks a given item as unread in the response list and updates the 
+	 * keywords in DB accordingly
+	 */
+	markItemAsUnread: function( tabId, itemId ) {
+		
+		this.getDbConn();
+						
+		/// for every response in list ...
+		for( var r = 0; r < this.responseList.length; r++ ) {
+			
+			var response = this.responseList[r];
+			
+			/// is this the desired tab?
+			if( response.tabId == tabId ) {
+				
+				/// for every item in response list ...
+				for( var i = 0; i < response.items.length; i++ ) {
+					
+					var item = response.items[i];
+					
+					/// hoorray!
+					if( item.id == itemId && item.read == true ) {
+						
+						/// mark as read
+						TastyGoogleReader.decreaseGoodCounter( item.keywords );
+						item.read = false;
+						break;	/// okay, finished with that item!
+					}
+					
+				} /// for every item
+				
+				break;	/// there should be only this tab
+				
+			} /// if tab id
+			
+		} /// for every response
+		
+		return;
+	},
+
+	
+    /**
+	 * marks all items as read and increases the bad counter in th DB
+	 * for all unread items
+	 */
+	markAllAsRead: function( tabId, itemId ) {
+		
+		this.getDbConn();
+						
+		/// for every response in list ...
+		for( var r = 0; r < this.responseList.length; r++ ) {
+			
+			var response = this.responseList[r];
+			
+			/// is this the desired tab?
+			if( response.tabId == tabId ) {
+				
+				/// for every item in response list ...
+				for( var i = 0; i < response.items.length; i++ ) {
+					
+					var item = response.items[i];
+					
+					/// only the unread items are uninteresting
+					if( item.read != true ) {
+						/// mark as read
+						TastyGoogleReader.increaseBadCounter( item.keywords );
+						item.read = true;
+					}
+					
+				} /// for every item
+				
+				/// remove tab
+				this.removeResponse( tabId );
+				break;	/// there should be only this tab
+				
+			} /// if tab id
+			
+		} /// for every response
+		
+		return;
+	},
+
+	
+	/**
+	 * increases the good counter for all words in the given array.
+	 */
+	increaseGoodCounter: function( keywords ) {
+		
+		TastyGoogleReader.getDbConn();
+		
+		/// make sure, every keyword is present in db with default values
+		var query = "INSERT OR IGNORE INTO Words (word) VALUES('"
+		          + keywords.join( "'); INSERT OR IGNORE INTO Words (word) VALUES('" )
+				  + "')";
+		this.dbConn.executeSimpleSQL( query );
+		
+		/// increase the counter
+		query = "UPDATE Words SET good = good + 1 WHERE word = '"
+		      + keywords.join( "' OR word = '" ) + "'";
+		this.dbConn.executeSimpleSQL( query );
+		
+		return;
+	},
+	
+	/**
+	 * decreases the good counter for all given words
+	 */
+	decreaseGoodCounter: function( keywords ) {
+		
+		TastyGoogleReader.getDbConn();
+		
+		/// make sure, every keyword is present in db with default values
+		//var query = "INSERT OR IGNORE INTO Words (word) VALUES('"
+		//          + keywords.join( "'); INSERT OR IGNORE INTO Words (word) VALUES('" )
+		//		  + "')";
+		//this.dbConn.executeSimpleSQL( query );
+		
+		/// update the counters
+		var query = "UPDATE Words SET good = good - 1 WHERE word = '"
+		      + keywords.join( "' OR word = '" ) + "'";
+		this.dbConn.executeSimpleSQL( query );
+		
+		return;
+	},
+	
+	/**
+	 * increases the bad counter for all words in the given array.
+	 */
+	increaseBadCounter: function( keywords ) {
+		
+		TastyGoogleReader.getDbConn();
+		
+		/// make sure, every keyword is present in db with default values
+		var query = "INSERT OR IGNORE INTO Words (word) VALUES('"
+		          + keywords.join( "'); INSERT OR IGNORE INTO Words (word) VALUES('" )
+				  + "')";
+		this.dbConn.executeSimpleSQL( query );
+		
+		/// increase the counter
+		var query = "UPDATE Words SET bad = bad + 1 WHERE word = '"
+		      + keywords.join( "' OR word = '" ) + "'";
+		this.dbConn.executeSimpleSQL( query );
+		
+		return;
+	},
 	
 };
 

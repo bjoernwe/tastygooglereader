@@ -4,15 +4,10 @@
 
 <overlay id="tastygooglereader-overlay" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
 
-  <script src="overlay.js"/>
+  <script src="tastygooglereader.js"/>
 
   <stringbundleset id="stringbundleset">
     <stringbundle id="tastygooglereader-strings" src="chrome://tastygooglereader/locale/tastygooglereader.properties"/>
   </stringbundleset>
-
-  <menupopup id="menu_ToolsPopup">
-    <menuitem id="tastygooglereader-hello" label="&tastygooglereader.label;" 
-              oncommand="tastygooglereader.onMenuItemCommand(event);"/>
-  </menupopup>
 
 </overlay>

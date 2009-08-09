@@ -98,10 +98,10 @@ var TastyRequestObserver =
 				dump( "feed response: " + url + "\n" );
 
 				/// find tab ID for this request
-				var tabId = TastyGoogleReader.getTabIDfromDOM( subject, subject );
+				var topDoc = TastyGoogleReader.getDocumentFromHttpRequest( subject );
 
 				/// Register the StremListener. It will sort the news items...
-				var newListener = new TastyTracingListener( tabId );
+				var newListener = new TastyTracingListener( topDoc );
 				subject.QueryInterface( Components.interfaces.nsITraceableChannel );
 				newListener.originalListener = subject.setNewListener( newListener );
 

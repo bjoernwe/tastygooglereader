@@ -1,6 +1,7 @@
-function TastyTracingListener( tabId ) {
-  this.tabId = tabId;
-  this.receivedData = [];
+function TastyTracingListener( topDoc ) {
+	this.topDoc = topDoc;
+	this.tabId = gBrowser.getBrowserForDocument(topDoc).parentNode.id;
+	this.receivedData = [];
 }
 
 /**
@@ -9,6 +10,7 @@ function TastyTracingListener( tabId ) {
  */
 TastyTracingListener.prototype =
 {
+	topDoc:				null,
 	tabId: 				null,
     originalListener: 	null,
     receivedData: 		null,	/// array for incoming data
@@ -31,6 +33,9 @@ TastyTracingListener.prototype =
 
 			/// reached the end of the JSON encoded news?
 			if( s_end == "}}]}" || s_end == ":[]}" ) {
+				
+				/// set status
+				this.topDoc.getElementById("loading-area-text").textContent = "Thinking...";
 			
 				/// sort response and re-code it
 				var response = JSON.parse( s );

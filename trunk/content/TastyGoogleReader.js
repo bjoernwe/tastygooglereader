@@ -97,6 +97,7 @@ var TastyGoogleReader =
 		//for( var i = 0; i < newWords.length; i++ )
 		//	words.push( newWords[i] );
 
+		/// extract words from title
 		newWords = TastyGoogleReader.extractWordsFromString( item.title );
 		for( var i = 0; i < newWords.length; i++ )
 			words.push( newWords[i] );
@@ -111,7 +112,7 @@ var TastyGoogleReader =
     
 		var word;
 		var words = [];
-		var rexp = /([A-Z][0-9A-Z]+[0-9A-Z])/gi;
+		var rexp = /([A-ZÄÖÜ][0-9A-ZÄÖÜß]+[0-9A-ZÄÖÜß])/gi;
 
 		while( word = rexp.exec( s ) )
 			words.push( word[1].toLowerCase() );
@@ -122,7 +123,7 @@ var TastyGoogleReader =
     /**
      * Returns the Tab-ID for a given HTTP request.
      */
-	getTabIDfromDOM: function( aChannel, aSubject ) {
+	/*getTabIDfromDOM: function( aChannel, aSubject ) {
 	
 		try {
 			
@@ -152,7 +153,44 @@ var TastyGoogleReader =
 		}
 	
 		return null;
+	},*/
+
+
+    /**
+     * Returns the top.document for a given HTTP request.
+     */
+	getDocumentFromHttpRequest: function( aChannel ) {
+	
+		try {
+			
+		    /// try the standard method
+		    var notificationCallbacks = aChannel.notificationCallbacks ? aChannel.notificationCallbacks : aChannel.loadGroup.notificationCallbacks;
+		    var callback = notificationCallbacks.getInterface( Components.interfaces.nsIDOMWindow );
+		  
+		    return callback.top.document;
+		  
+		} catch( e ) {
+			
+		    try {
+			  
+				/// if it failed somehow, try the second method
+				var notificationCallbacks = aChannel.loadGroup.notificationCallbacks;
+				var callback = notificationCallbacks.getInterface( Components.interfaces.nsIDOMWindow );
+				
+				return callback.top.document;
+			
+			} catch( e2 ) {
+			  
+				dump( e2 + "\n" );
+				return null;
+			
+			}
+		
+		}
+	
+		return null;
 	},
+
 
 	/// Helper function for XPCOM instanciation
 	CCIN: function( cName, ifaceName ) {

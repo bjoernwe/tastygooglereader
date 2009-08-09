@@ -1,9 +1,10 @@
 var TastyGoogleReader =
 {
-  
 	responseList: 	[],
 	dbFile:			null,
 	dbConn:			null,
+	
+	regexpLabel:	/user\/[0-9]+\/label\/(.*)/i,
 
 	// initialization code
 	onLoad: function() {
@@ -50,6 +51,7 @@ var TastyGoogleReader =
 		this.responseList.push( response );
 		return;
 	},
+
 	
 	/**
 	 * event handler vor removed tabs
@@ -59,6 +61,7 @@ var TastyGoogleReader =
 		this.removeResponse( tabId );
 		return;
 	},
+
   
 	/**
 	 * sort the feed items. that's the important part! :-)
@@ -71,15 +74,17 @@ var TastyGoogleReader =
 			var item = response.items[i];
 			var wordList = TastyGoogleReader.extractWordsFromItem( item );
 			item.keywords = wordList;	/// save the results for later
+			TastyGoogleReader.rateItem( item );
 			
 			dump( wordList.length + ": " + wordList + "\n" );
 		  
 			/// test
-			response.items[i].title = response.items[i].title.toUpperCase();
+			response.items[i].title = "[" + response.items[i].rating + "] " + response.items[i].title.toUpperCase();
 		}
 
 		return response;
 	},
+
 
     /**
      * extracts words from a news item
@@ -93,10 +98,14 @@ var TastyGoogleReader =
 		var words = [];
 		var newWords = [];
 		
-		//newWords = TastyGoogleReader.extractWordsFromString( item.categories.join( " " ) );
-		//for( var i = 0; i < newWords.length; i++ )
-		//	words.push( newWords[i] );
-
+		/// add tags and streamId
+		for( var i = 0; i < item.categories.length; i++ ) {
+			var match = item.categories[i].match( this.regexpLabel );
+			if( match )
+				words.push( match[1] );
+			words.push( item.origin.streamId );
+		}
+		
 		/// extract words from title
 		newWords = TastyGoogleReader.extractWordsFromString( item.title );
 		for( var i = 0; i < newWords.length; i++ )
@@ -104,6 +113,7 @@ var TastyGoogleReader =
 
 		return words;
 	},
+	
 
     /**
      * Here we decide what counts as a word what doesn't.
@@ -119,6 +129,41 @@ var TastyGoogleReader =
 
 		return words;
 	},
+	
+	
+	/**
+	 * rates a item with a bayesian classifier
+	 */
+	rateItem: function( item ) {
+		
+		this.getDbConn();
+		
+		/// make sure, every keyword is present in db with default values
+		var query = "INSERT OR IGNORE INTO Words (word) VALUES('"
+		          + item.keywords.join( "'); INSERT OR IGNORE INTO Words (word) VALUES('" )
+				  + "')";
+		dump( query + "\n" );
+		this.dbConn.executeSimpleSQL( query );
+		
+		var query = "SELECT word, good, bad, good+bad AS sum, 100*good/(good+bad) AS interesting FROM Words WHERE word = '"
+				  + item.keywords.join( "' OR word = '" ) + "'";
+		dump( query + "\n" );
+		var statement = this.dbConn.createStatement( query );
+		
+		var product1 = 1.0;
+		var product2 = 1.0;
+		
+		while( statement.executeStep() ) {
+			product1 = product1 * statement.row.interesting / 100.0;
+			product2 = product2 * ( 100 - statement.row.interesting ) / 100.0;
+		}
+		
+		dump( product1 + " / " + product2 + "\n" );
+		
+		item.rating = product1 / ( product1 + product2 );
+		return;
+	},
+	
 
     /**
      * Returns the Tab-ID for a given HTTP request.
@@ -213,6 +258,10 @@ var TastyGoogleReader =
 			var storageService = Components.classes["@mozilla.org/storage/service;1"].getService(Components.interfaces.mozIStorageService);
 			this.dbConn = storageService.openDatabase( this.dbFile );
 		}
+		
+		/// create table if it doesn't exist yet
+		var query = "CREATE TABLE IF NOT EXISTS 'Words' ( 'word' CHAR PRIMARY KEY NOT NULL, 'good' INTEGER NOT NULL DEFAULT 1, 'bad' INTEGER NOT NULL DEFAULT 1 )";
+		this.dbConn.executeSimpleSQL( query );
 		
 		return this.dbConn;
 	},
@@ -348,16 +397,16 @@ var TastyGoogleReader =
 	 */
 	increaseGoodCounter: function( keywords ) {
 		
-		TastyGoogleReader.getDbConn();
+		this.getDbConn();
 		
 		/// make sure, every keyword is present in db with default values
-		var query = "INSERT OR IGNORE INTO Words (word) VALUES('"
-		          + keywords.join( "'); INSERT OR IGNORE INTO Words (word) VALUES('" )
-				  + "')";
-		this.dbConn.executeSimpleSQL( query );
+		//var query = "INSERT OR IGNORE INTO Words (word) VALUES('"
+		//          + keywords.join( "'); INSERT OR IGNORE INTO Words (word) VALUES('" )
+		//		  + "')";
+		//this.dbConn.executeSimpleSQL( query );
 		
 		/// increase the counter
-		query = "UPDATE Words SET good = good + 1 WHERE word = '"
+		var query = "UPDATE Words SET good = good + 1 WHERE word = '"
 		      + keywords.join( "' OR word = '" ) + "'";
 		this.dbConn.executeSimpleSQL( query );
 		
@@ -369,7 +418,7 @@ var TastyGoogleReader =
 	 */
 	decreaseGoodCounter: function( keywords ) {
 		
-		TastyGoogleReader.getDbConn();
+		this.getDbConn();
 		
 		/// make sure, every keyword is present in db with default values
 		//var query = "INSERT OR IGNORE INTO Words (word) VALUES('"
@@ -390,13 +439,13 @@ var TastyGoogleReader =
 	 */
 	increaseBadCounter: function( keywords ) {
 		
-		TastyGoogleReader.getDbConn();
+		this.getDbConn();
 		
 		/// make sure, every keyword is present in db with default values
-		var query = "INSERT OR IGNORE INTO Words (word) VALUES('"
-		          + keywords.join( "'); INSERT OR IGNORE INTO Words (word) VALUES('" )
-				  + "')";
-		this.dbConn.executeSimpleSQL( query );
+		//var query = "INSERT OR IGNORE INTO Words (word) VALUES('"
+		//          + keywords.join( "'); INSERT OR IGNORE INTO Words (word) VALUES('" )
+		//		  + "')";
+		//this.dbConn.executeSimpleSQL( query );
 		
 		/// increase the counter
 		var query = "UPDATE Words SET bad = bad + 1 WHERE word = '"

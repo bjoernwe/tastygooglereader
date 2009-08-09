@@ -4,7 +4,9 @@
 
 <overlay id="tastygooglereader-overlay" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
 
-  <script src="tastygooglereader.js"/>
+  <script src="TastyRequestObserver.js"/>
+  <script src="TastyTracingListener.js"/>
+  <script src="TastyGoogleReader.js"/>
 
   <stringbundleset id="stringbundleset">
     <stringbundle id="tastygooglereader-strings" src="chrome://tastygooglereader/locale/tastygooglereader.properties"/>

@@ -168,12 +168,12 @@ var TastyGoogleReader =
     /**
      * Returns the Tab-ID for a given HTTP request.
      */
-	/*getTabIDfromDOM: function( aChannel, aSubject ) {
+	getTabIDfromDOM: function( aChannel ) {
 	
 		try {
 			
 		    /// try the standard method
-		    var notificationCallbacks = aChannel.notificationCallbacks ? aChannel.notificationCallbacks : aSubject.loadGroup.notificationCallbacks;
+		    var notificationCallbacks = aChannel.notificationCallbacks ? aChannel.notificationCallbacks : aChannel.loadGroup.notificationCallbacks;
 		    var callback = notificationCallbacks.getInterface( Components.interfaces.nsIDOMWindow );
 		  
 		    return callback.top.document ? gBrowser.getBrowserForDocument(callback.top.document).parentNode.id : null;
@@ -183,7 +183,7 @@ var TastyGoogleReader =
 		    try {
 			  
 				/// if it failed somehow, try the second method
-				var notificationCallbacks = aSubject.loadGroup.notificationCallbacks;
+				var notificationCallbacks = aChannel.loadGroup.notificationCallbacks;
 				var callback = notificationCallbacks.getInterface( Components.interfaces.nsIDOMWindow );
 				
 				return callback.top.document ? gBrowser.getBrowserForDocument(callback.top.document).parentNode.id : null;
@@ -198,7 +198,7 @@ var TastyGoogleReader =
 		}
 	
 		return null;
-	},*/
+	},
 
 
     /**

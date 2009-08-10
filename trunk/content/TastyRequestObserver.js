@@ -23,7 +23,7 @@ var TastyRequestObserver =
 				dump( "http-on-modify-request: " + url + "\n" );
 				
 				/// find tab ID for this request
-				var tabId = TastyGoogleReader.getTabIDfromDOM( subject, subject );
+				var tabId = TastyGoogleReader.getTabIDfromDOM( subject );
 				var parameters = "";
 				
 				/// we split the request in it's url and it's parameters.

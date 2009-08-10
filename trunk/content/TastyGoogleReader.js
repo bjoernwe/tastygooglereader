@@ -250,7 +250,7 @@ var TastyGoogleReader =
 		/// get database file
 		if( this.dbFile == null ) {
 			this.dbFile = Components.classes["@mozilla.org/file/directory_service;1"].getService(Components.interfaces.nsIProperties).get("ProfD", Components.interfaces.nsIFile);
-			this.dbFile.append( "my_db_file_name.sqlite" );
+			this.dbFile.append( "tastygooglereader.sqlite" );
 		}
 			
 		/// get connection to database

@@ -51,6 +51,57 @@ var TastyGoogleReader =
 		this.responseList.push( response );
 		return;
 	},
+	
+	
+	/**
+	 * if there's already an entry for this tabId, merge the items
+	 */
+	mergeResponse: function( response ) {
+		
+		try {
+			
+			/// for every response in list...
+			for( var r = 0; r < this.responseList.length; r++ ) {
+				
+				/// right response?
+				if( this.responseList[r].tabId == response.tabId ) {
+					
+					/// for every new item...
+					for( var i = 0; i < response.items.length; i++ ) {
+						
+						var newItemId = response.items[i].id;
+						var itemNew = true;
+						
+						/// item already in item list?
+						for( var j = 0; j < this.responseList[r].items.length; j++ ) {
+							
+							///
+							if( this.responseList[r].items[j].id == newItemId ) {
+								itemNew = false;
+								break;
+							}
+							
+						}
+						
+						/// item not in list? add it!
+						if( itemNew ) {
+							this.responseList[r].items.push( response.items[i] );
+						}
+						
+					} /// for every new item
+					
+					return true;
+					
+				} /// if right response
+				
+			} /// for every response
+			
+		} catch(e) {
+			dump( e + "\n" );
+		}
+		
+		return;
+	},
 
 	
 	/**
@@ -66,22 +117,34 @@ var TastyGoogleReader =
 	/**
 	 * sort the feed items. that's the important part! :-)
      */
-	sortResponse: function( response ) {
+	sortResponse: function( response, topDoc ) {
 
-		/// items...
-		for( var i = 0; i < response.items.length; i++ ) {
-			
-			var item = response.items[i];
-			var wordList = TastyGoogleReader.extractWordsFromItem( item );
-			item.keywords = wordList;	/// save the results for later
-			TastyGoogleReader.rateItem( item );
-			
-			dump( wordList.length + ": " + wordList + "\n" );
-		  
-			/// test
-			response.items[i].title = "[" + response.items[i].rating + "] " + response.items[i].title.toUpperCase();
+		try {
+
+			/// set status
+			topDoc.getElementById("loading-area-text").textContent = "Thinking...";
+				
+			/// items...
+			for( var i = 0; i < response.items.length; i++ ) {
+				
+				var item = response.items[i];
+				var wordList = TastyGoogleReader.extractWordsFromItem( item );
+				item.keywords = wordList;	/// save the results for later
+				TastyGoogleReader.rateItem( item );
+				
+				//dump( wordList.length + ": " + wordList + "\n" );
+			  
+				/// modifiy title
+				response.items[i].title = "[" + response.items[i].rating + "] " + response.items[i].title;
+				
+				/// set status
+				topDoc.getElementById("loading-area-text").textContent = "[" + i + "]";
+			}
+
+		} catch(e) {
+			dump( e + "\n" );
 		}
-
+		
 		return response;
 	},
 
@@ -142,12 +205,12 @@ var TastyGoogleReader =
 		var query = "INSERT OR IGNORE INTO Words (word) VALUES('"
 		          + item.keywords.join( "'); INSERT OR IGNORE INTO Words (word) VALUES('" )
 				  + "')";
-		dump( query + "\n" );
+		//dump( query + "\n" );
 		this.dbConn.executeSimpleSQL( query );
 		
 		var query = "SELECT word, good, bad, good+bad AS sum, 100*good/(good+bad) AS interesting FROM Words WHERE word = '"
 				  + item.keywords.join( "' OR word = '" ) + "'";
-		dump( query + "\n" );
+		//dump( query + "\n" );
 		var statement = this.dbConn.createStatement( query );
 		
 		var product1 = 1.0;
@@ -158,7 +221,7 @@ var TastyGoogleReader =
 			product2 = product2 * ( 100 - statement.row.interesting ) / 100.0;
 		}
 		
-		dump( product1 + " / " + product2 + "\n" );
+		//dump( product1 + " / " + product2 + "\n" );
 		
 		item.rating = product1 / ( product1 + product2 );
 		return;

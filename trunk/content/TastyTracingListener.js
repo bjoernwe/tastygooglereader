@@ -1,7 +1,9 @@
-function TastyTracingListener( topDoc ) {
-	this.topDoc = topDoc;
-	this.tabId = gBrowser.getBrowserForDocument(topDoc).parentNode.id;
-	this.receivedData = [];
+function TastyTracingListener( topDoc, url, parameters ) {
+	this.topDoc 		= topDoc;
+	this.url    		= url;
+	this.parameters 	= parameters;
+	this.tabId 			= gBrowser.getBrowserForDocument(topDoc).parentNode.id;
+	this.receivedData 	= [];
 }
 
 /**
@@ -11,9 +13,13 @@ function TastyTracingListener( topDoc ) {
 TastyTracingListener.prototype =
 {
 	topDoc:				null,
+	url:				null,
+	parameters:			null,
 	tabId: 				null,
     originalListener: 	null,
     receivedData: 		null,	/// array for incoming data
+	
+	regexpParamC:		/&c=([^&]*)/i,	/// RegExp to find/extract parameter c
 
     onDataAvailable: function( request, context, inputStream, offset, count ) {
     
@@ -34,12 +40,9 @@ TastyTracingListener.prototype =
 			/// reached the end of the JSON encoded news?
 			if( s_end == "}}]}" || s_end == ":[]}" ) {
 				
-				/// set status
-				this.topDoc.getElementById("loading-area-text").textContent = "Thinking...";
-			
 				/// sort response and re-code it
 				var response = JSON.parse( s );
-				TastyGoogleReader.sortResponse( response );
+				TastyGoogleReader.sortResponse( response, this.topDoc );
 				s = JSON.stringify( response );
 			
 				/// hand on the sorted response
@@ -50,7 +53,14 @@ TastyTracingListener.prototype =
 				
 				/// remember response with it's tabId
 				response.tabId = this.tabId;
-				TastyGoogleReader.rememberResponse( response );
+				dump( "parameters: " + this.parameters + "\n" );
+				dump( this.parameters.search( this.regexpParamC ) + "\n" );
+				if( this.parameters.search( this.regexpParamC ) > -1 ) {
+					/// the reader seems to reload items for a stream.
+					TastyGoogleReader.mergeResponse( response );
+				} else {
+					TastyGoogleReader.rememberResponse( response );
+				}
 			}
 
 		} catch(e) {

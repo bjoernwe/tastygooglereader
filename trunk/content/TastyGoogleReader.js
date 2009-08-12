@@ -115,9 +115,12 @@ var TastyGoogleReader =
 
   
 	/**
-	 * sort the feed items. that's the important part! :-)
+	 * that's the important part! :-)
+	 * 
+	 * preocesses a response object: etract keywords, rate items, write
+	 * keywords to DB...
      */
-	sortResponse: function( response, topDoc ) {
+	processResponse: function( response, topDoc ) {
 
 		try {
 
@@ -135,7 +138,7 @@ var TastyGoogleReader =
 				//dump( wordList.length + ": " + wordList + "\n" );
 			  
 				/// modifiy title
-				response.items[i].title = "[" + response.items[i].rating + "] " + response.items[i].title;
+				response.items[i].title = "[" + response.items[i].rating.toFixed(2) + "] " + response.items[i].title;
 				
 				/// set status
 				topDoc.getElementById("loading-area-text").textContent = "[" + i + "]";
@@ -154,27 +157,34 @@ var TastyGoogleReader =
      */
     extractWordsFromItem: function( item ) {
 		
-		/// did we already do the work of extracting the keywords?
-		if( item.keywords )
-			return item.keywords;
+		try {
+			
+			/// did we already do the work of extracting the keywords?
+			if( item.keywords )
+				return item.keywords;
 
-		var words = [];
-		var newWords = [];
+			var words = [];
+			var newWords = [];
+			
+			/// add tags and streamId
+			for( var i = 0; i < item.categories.length; i++ ) {
+				var match = item.categories[i].match( this.regexpLabel );
+				if( match )
+					words.push( match[1] );
+				words.push( item.origin.streamId );
+			}
+			
+			/// extract words from title
+			newWords = TastyGoogleReader.extractWordsFromString( TastyGoogleReader.utf8to16( item.title ) );
+			for( var i = 0; i < newWords.length; i++ )
+				words.push( newWords[i] );
+
+			return words;
 		
-		/// add tags and streamId
-		for( var i = 0; i < item.categories.length; i++ ) {
-			var match = item.categories[i].match( this.regexpLabel );
-			if( match )
-				words.push( match[1] );
-			words.push( item.origin.streamId );
+		} catch(e) {
+			dump( e + "\n" );
 		}
 		
-		/// extract words from title
-		newWords = TastyGoogleReader.extractWordsFromString( item.title );
-		for( var i = 0; i < newWords.length; i++ )
-			words.push( newWords[i] );
-
-		return words;
 	},
 	
 
@@ -459,21 +469,26 @@ var TastyGoogleReader =
 	 * increases the good counter for all words in the given array.
 	 */
 	increaseGoodCounter: function( keywords ) {
+
+		try {
+			
+			this.getDbConn();
+			
+			/// make sure, every keyword is present in db with default values
+			//var query = "INSERT OR IGNORE INTO Words (word) VALUES('"
+			//          + keywords.join( "'); INSERT OR IGNORE INTO Words (word) VALUES('" )
+			//		  + "')";
+			//this.dbConn.executeSimpleSQL( query );
+			
+			/// increase the counter
+			var query = "UPDATE Words SET good = good + 1 WHERE word = '"
+				  + keywords.join( "' OR word = '" ) + "'";
+			this.dbConn.executeSimpleSQL( query );
 		
-		this.getDbConn();
+		} catch(e) {
+			dump( e + "\n" );
+		}
 		
-		/// make sure, every keyword is present in db with default values
-		//var query = "INSERT OR IGNORE INTO Words (word) VALUES('"
-		//          + keywords.join( "'); INSERT OR IGNORE INTO Words (word) VALUES('" )
-		//		  + "')";
-		//this.dbConn.executeSimpleSQL( query );
-		
-		/// increase the counter
-		var query = "UPDATE Words SET good = good + 1 WHERE word = '"
-		      + keywords.join( "' OR word = '" ) + "'";
-		this.dbConn.executeSimpleSQL( query );
-		
-		return;
 	},
 	
 	/**
@@ -481,20 +496,25 @@ var TastyGoogleReader =
 	 */
 	decreaseGoodCounter: function( keywords ) {
 		
-		this.getDbConn();
+		try {
+			
+			this.getDbConn();
+			
+			/// make sure, every keyword is present in db with default values
+			//var query = "INSERT OR IGNORE INTO Words (word) VALUES('"
+			//          + keywords.join( "'); INSERT OR IGNORE INTO Words (word) VALUES('" )
+			//		  + "')";
+			//this.dbConn.executeSimpleSQL( query );
+			
+			/// update the counters
+			var query = "UPDATE Words SET good = good - 1 WHERE word = '"
+				  + keywords.join( "' OR word = '" ) + "'";
+			this.dbConn.executeSimpleSQL( query );
 		
-		/// make sure, every keyword is present in db with default values
-		//var query = "INSERT OR IGNORE INTO Words (word) VALUES('"
-		//          + keywords.join( "'); INSERT OR IGNORE INTO Words (word) VALUES('" )
-		//		  + "')";
-		//this.dbConn.executeSimpleSQL( query );
+		} catch(e) {
+			dump( e + "\n" );
+		}
 		
-		/// update the counters
-		var query = "UPDATE Words SET good = good - 1 WHERE word = '"
-		      + keywords.join( "' OR word = '" ) + "'";
-		this.dbConn.executeSimpleSQL( query );
-		
-		return;
 	},
 	
 	/**
@@ -502,22 +522,95 @@ var TastyGoogleReader =
 	 */
 	increaseBadCounter: function( keywords ) {
 		
-		this.getDbConn();
+		try {
+			
+			this.getDbConn();
+			
+			/// make sure, every keyword is present in db with default values
+			//var query = "INSERT OR IGNORE INTO Words (word) VALUES('"
+			//          + keywords.join( "'); INSERT OR IGNORE INTO Words (word) VALUES('" )
+			//		  + "')";
+			//this.dbConn.executeSimpleSQL( query );
+			
+			/// increase the counter
+			var query = "UPDATE Words SET bad = bad + 1 WHERE word = '"
+				  + keywords.join( "' OR word = '" ) + "'";
+			this.dbConn.executeSimpleSQL( query );
 		
-		/// make sure, every keyword is present in db with default values
-		//var query = "INSERT OR IGNORE INTO Words (word) VALUES('"
-		//          + keywords.join( "'); INSERT OR IGNORE INTO Words (word) VALUES('" )
-		//		  + "')";
-		//this.dbConn.executeSimpleSQL( query );
+		} catch(e) {
+			dump( e + "\n" );
+		}
 		
-		/// increase the counter
-		var query = "UPDATE Words SET bad = bad + 1 WHERE word = '"
-		      + keywords.join( "' OR word = '" ) + "'";
-		this.dbConn.executeSimpleSQL( query );
-		
-		return;
 	},
 	
+	
+	/**
+	 * many thanks to Masanao Izumo <iz@onicos.co.jp> !
+	 */
+	utf16to8: function(str) {
+		var out, i, len, c;
+
+		out = "";
+		len = str.length;
+		for(i = 0; i < len; i++) {
+			c = str.charCodeAt(i);
+			if ((c >= 0x0001) && (c <= 0x007F)) {
+				out += str.charAt(i);
+			} else if (c > 0x07FF) {
+				out += String.fromCharCode(0xE0 | ((c >> 12) & 0x0F));
+				out += String.fromCharCode(0x80 | ((c >>  6) & 0x3F));
+				out += String.fromCharCode(0x80 | ((c >>  0) & 0x3F));
+			} else {
+				out += String.fromCharCode(0xC0 | ((c >>  6) & 0x1F));
+				out += String.fromCharCode(0x80 | ((c >>  0) & 0x3F));
+			}
+		}
+		return out;
+	},
+
+
+	/**
+	 * many thanks to Masanao Izumo <iz@onicos.co.jp> !
+	 */
+	utf8to16: function(str) {
+		var out, i, len, c;
+		var char2, char3;
+
+		out = "";
+		len = str.length;
+		i = 0;
+		while(i < len) {
+			c = str.charCodeAt(i++);
+			switch(c >> 4)
+			{ 
+			  case 0: case 1: case 2: case 3: case 4: case 5: case 6: case 7:
+				// 0xxxxxxx
+				out += str.charAt(i-1);
+				break;
+			  case 12: case 13:
+				// 110x xxxx   10xx xxxx
+				char2 = str.charCodeAt(i++);
+				out += String.fromCharCode(((c & 0x1F) << 6) | (char2 & 0x3F));
+				break;
+			  case 14:
+				// 1110 xxxx  10xx xxxx  10xx xxxx
+				char2 = str.charCodeAt(i++);
+				char3 = str.charCodeAt(i++);
+				out += String.fromCharCode(((c & 0x0F) << 12) |
+							   ((char2 & 0x3F) << 6) |
+							   ((char3 & 0x3F) << 0));
+				break;
+			}
+		}
+
+		return out;
+	},
+	
+	
+	itemSort: function( a, b ) {
+		return b.rating - a.rating;		
+	}
+
 };
 
 window.addEventListener( "load", TastyGoogleReader.onLoad, false );

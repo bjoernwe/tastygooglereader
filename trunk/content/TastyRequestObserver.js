@@ -9,6 +9,7 @@ var TastyRequestObserver =
 	googleReaderApiMarkAllRead: /^https?:\/\/www\.google\.com\/reader\/api\/0\/mark-all-as-read/i,
 	googleReaderApiParameters:	/^(https?:\/\/www\.google\.com\/reader\/api\/0\/[^?]*\?)(.*)/i,
 	googleReaderParametersAI:   /a=[^&]+%2F([^&]+).*i=([^&]*)/i,
+	googleReaderParametersR:	/&r=([^&]*)/i,	/// RegExp to find/extract parameter r (ordering)
 
 	observe: function( subject, topic, data ) {
 
@@ -51,8 +52,9 @@ var TastyRequestObserver =
 					if( url.search( this.googleReaderApiStream ) > -1 ) {
 				
 						/// replace the number of requested items and update url
-						//subject.URI.spec = url.replace( /([&?])n=\d+/g, "$1n=100" );
-						//url = subject.URI.spec;
+						var ordering = parameters.match( this.googleReaderParametersR );
+						if( ordering[1] == m )
+							subject.URI.spec = subject.URI.spec.replace( /([&?])n=\d+/g, "$1n=100" );
 						
 						/// tell server to send plain text responses. we can not work
 						/// properly with a ziped response.

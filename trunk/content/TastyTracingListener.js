@@ -19,7 +19,9 @@ TastyTracingListener.prototype =
     originalListener: 	null,
     receivedData: 		null,	/// array for incoming data
 	
-	regexpParamC:		/&c=([^&]*)/i,	/// RegExp to find/extract parameter c
+	regexpParamC:		/&c=([^&]*)/i,	/// RegExp to find/extract parameter c ("load/reload")
+	regexpParamOt:		/&ot=([^&]*)/i,	/// RegExp to find/extract parameter ot ("new/all")
+	regexpParamR:		/&r=([^&]*)/i,	/// RegExp to find/extract parameter r (ordering)
 
     onDataAvailable: function( request, context, inputStream, offset, count ) {
     
@@ -40,9 +42,19 @@ TastyTracingListener.prototype =
 			/// reached the end of the JSON encoded news?
 			if( s_end == "}}]}" || s_end == ":[]}" ) {
 				
+				/// get parameters of the feed request
+				var paramC	= this.parameters.match( this.regexpParamC );
+					paramC 	= paramC ? paramC[1] : null;
+				var paramOt	= this.parameters.match( this.regexpParamOt );
+					paramOt	= paramOt ? paramOt[1] : null;
+				var paramR	= this.parameters.match( this.regexpParamR );
+					paramR	= paramR ? paramR[1] : null;
+				
 				/// sort response and re-code it
 				var response = JSON.parse( s );
-				TastyGoogleReader.sortResponse( response, this.topDoc );
+				TastyGoogleReader.processResponse( response, this.topDoc );
+				if( paramR == "m" )
+					response.items.sort( TastyGoogleReader.itemSort );
 				s = JSON.stringify( response );
 			
 				/// hand on the sorted response
@@ -53,9 +65,7 @@ TastyTracingListener.prototype =
 				
 				/// remember response with it's tabId
 				response.tabId = this.tabId;
-				dump( "parameters: " + this.parameters + "\n" );
-				dump( this.parameters.search( this.regexpParamC ) + "\n" );
-				if( this.parameters.search( this.regexpParamC ) > -1 ) {
+				if( paramC ) {
 					/// the reader seems to reload items for a stream.
 					TastyGoogleReader.mergeResponse( response );
 				} else {

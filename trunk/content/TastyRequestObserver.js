@@ -54,7 +54,7 @@ var TastyRequestObserver =
 
                         /// replace the number of requested items and update url
                         var ordering = parameters.match( this.googleReaderParametersR );
-                        if( ordering[1] == m )
+                        if( ordering[1] == "m" )
                             subject.URI.spec = subject.URI.spec.replace( /([&?])n=\d+/g, "$1n=100" );
 
                         /// tell server to send plain text responses. we can not work

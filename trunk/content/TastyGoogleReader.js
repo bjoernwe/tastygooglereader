@@ -171,17 +171,51 @@ var TastyGoogleReader =
             var newWords = [];
 
             /// add tags and streamId
-            for( var i = 0; i < item.categories.length; i++ ) {
-                var match = item.categories[i].match( this.regexpLabel );
-                if( match )
-                    words.push( match[1] );
-                words.push( item.origin.streamId );
-            }
+            //for( var i = 0; i < item.categories.length; i++ ) {
+            //    var match = item.categories[i].match( this.regexpLabel );
+            //    if( match )
+            //        words.push( match[1] );
+            //}
+            words.push( item.origin.streamId );
 
             /// extract words from title
             newWords = TastyGoogleReader.extractWordsFromString( TastyGoogleReader.utf8to16( item.title ) );
             for( i = 0; i < newWords.length; i++ )
                 words.push( newWords[i] );
+
+            /// extract summary
+            newWords = [];
+            if( item.summary ) {
+
+                var summary = TastyGoogleReader.utf8to16( item.summary.content );
+
+                if( summary.search( "<" ) > -1 ) {
+                    /// probably html contetn
+                } else {
+                    /// probably plaintext
+                    newWords = TastyGoogleReader.extractWordsFromString( summary );
+                }
+
+                for( i = 0; i < newWords.length; i++ )
+                    words.push( newWords[i] );
+            }
+
+            /// extract content
+            newWords = [];
+            if( item.content ) {
+
+                var content = TastyGoogleReader.utf8to16( item.content.content );
+
+                if( content.search( "<" ) > -1 ) {
+                    /// probably html contetn
+                } else {
+                    /// probably plaintext
+                    newWords = TastyGoogleReader.extractWordsFromString( content );
+                }
+
+                for( i = 0; i < newWords.length; i++ )
+                    words.push( newWords[i] );
+            }
 
             return words;
 
@@ -196,15 +230,22 @@ var TastyGoogleReader =
      * Here we decide what counts as a word what doesn't.
      */
     extractWordsFromString: function( s ) {
-    
-        var word;
-        var words = [];
-        var rexp = /([A-ZÄÖÜ][0-9A-ZÄÖÜß]+[0-9A-ZÄÖÜß])/gi;
 
-        while( ( word = rexp.exec( s ) ) )
-            words.push( word[1].toLowerCase() );
+        try {
+            
+            var word;
+            var words = [];
+            var rexp = /([A-ZÄÖÜ][0-9A-ZÄÖÜß]+[0-9A-ZÄÖÜß])/gi;
 
-        return words;
+            while( ( word = rexp.exec( s ) ) )
+                words.push( word[1].toLowerCase() );
+
+            return words;
+            
+        } catch(e) {
+            dump( e + "\n" );
+        }
+
     },
 	
 	
@@ -213,32 +254,39 @@ var TastyGoogleReader =
      */
     rateItem: function( item ) {
 
-        this.getDbConn();
+        try {
+            
+            this.getDbConn();
 
-        /// make sure, every keyword is present in db with default values
-        var query = "INSERT OR IGNORE INTO Words (word) VALUES('"
-                  + item.keywords.join( "'); INSERT OR IGNORE INTO Words (word) VALUES('" )
-                          + "')";
-        //dump( query + "\n" );
-        this.dbConn.executeSimpleSQL( query );
+            /// make sure, every keyword is present in db with default values
+            var query = "INSERT OR IGNORE INTO Words (word) VALUES('"
+                      + item.keywords.join( "'); INSERT OR IGNORE INTO Words (word) VALUES('" )
+                      + "')";
+            //dump( query + "\n" );
+            this.dbConn.executeSimpleSQL( query );
 
-        query = "SELECT word, good, bad, good+bad AS sum, 100*good/(good+bad) AS interesting FROM Words WHERE word = '"
-              + item.keywords.join( "' OR word = '" ) + "'";
-        //dump( query + "\n" );
-        var statement = this.dbConn.createStatement( query );
+            query = "SELECT word, good, bad, good+bad AS sum, 100*good/(good+bad) AS interesting FROM Words WHERE word = '"
+                  + item.keywords.join( "' OR word = '" ) + "'";
+            //dump( query + "\n" );
+            var statement = this.dbConn.createStatement( query );
 
-        var product1 = 1.0;
-        var product2 = 1.0;
+            var product1 = 1.0;
+            var product2 = 1.0;
 
-        while( statement.executeStep() ) {
-            product1 = product1 * statement.row.interesting / 100.0;
-            product2 = product2 * ( 100 - statement.row.interesting ) / 100.0;
+            while( statement.executeStep() ) {
+                product1 = product1 * statement.row.interesting / 100.0;
+                product2 = product2 * ( 100 - statement.row.interesting ) / 100.0;
+            }
+
+            //dump( product1 + " / " + product2 + "\n" );
+
+            item.rating = product1 / ( product1 + product2 );
+            return;
+
+        } catch(e) {
+            dump( e + "\n" );
         }
-
-        //dump( product1 + " / " + product2 + "\n" );
-
-        item.rating = product1 / ( product1 + product2 );
-        return;
+        
     },
 	
 
@@ -331,23 +379,30 @@ var TastyGoogleReader =
      */
     getDbConn: function() {
 
-        /// get database file
-        if( this.dbFile == null ) {
-            this.dbFile = Components.classes["@mozilla.org/file/directory_service;1"].getService(Components.interfaces.nsIProperties).get("ProfD", Components.interfaces.nsIFile);
-            this.dbFile.append( "tastygooglereader.sqlite" );
+        try {
+
+            /// get database file
+            if( this.dbFile == null ) {
+                this.dbFile = Components.classes["@mozilla.org/file/directory_service;1"].getService(Components.interfaces.nsIProperties).get("ProfD", Components.interfaces.nsIFile);
+                this.dbFile.append( "tastygooglereader.sqlite" );
+            }
+
+            /// get connection to database
+            if( this.dbConn == null ) {
+                var storageService = Components.classes["@mozilla.org/storage/service;1"].getService(Components.interfaces.mozIStorageService);
+                this.dbConn = storageService.openDatabase( this.dbFile );
+            }
+
+            /// create table if it doesn't exist yet
+            var query = "CREATE TABLE IF NOT EXISTS 'Words' ( 'word' CHAR PRIMARY KEY NOT NULL, 'good' INTEGER NOT NULL DEFAULT 1, 'bad' INTEGER NOT NULL DEFAULT 1 )";
+            this.dbConn.executeSimpleSQL( query );
+
+            return this.dbConn;
+
+        } catch(e) {
+            dump( e + "\n" );
         }
-
-        /// get connection to database
-        if( this.dbConn == null ) {
-            var storageService = Components.classes["@mozilla.org/storage/service;1"].getService(Components.interfaces.mozIStorageService);
-            this.dbConn = storageService.openDatabase( this.dbFile );
-        }
-
-        /// create table if it doesn't exist yet
-        var query = "CREATE TABLE IF NOT EXISTS 'Words' ( 'word' CHAR PRIMARY KEY NOT NULL, 'good' INTEGER NOT NULL DEFAULT 1, 'bad' INTEGER NOT NULL DEFAULT 1 )";
-        this.dbConn.executeSimpleSQL( query );
-
-        return this.dbConn;
+        
     },
 
 
@@ -357,39 +412,46 @@ var TastyGoogleReader =
      */
     markItemAsRead: function( tabId, itemId ) {
 
-        this.getDbConn();
+        try {
 
-        /// for every response in list ...
-        for( var r = 0; r < this.responseList.length; r++ ) {
+            this.getDbConn();
 
-            var response = this.responseList[r];
+            /// for every response in list ...
+            for( var r = 0; r < this.responseList.length; r++ ) {
 
-            /// is this the desired tab?
-            if( response.tabId == tabId ) {
+                var response = this.responseList[r];
 
-                /// for every item in response list ...
-                for( var i = 0; i < response.items.length; i++ ) {
+                /// is this the desired tab?
+                if( response.tabId == tabId ) {
 
-                    var item = response.items[i];
+                    /// for every item in response list ...
+                    for( var i = 0; i < response.items.length; i++ ) {
 
-                    /// hoorray!
-                    if( item.id == itemId && item.read != true ) {
+                        var item = response.items[i];
 
-                        /// mark as read
-                        TastyGoogleReader.increaseGoodCounter( item.keywords );
-                        item.read = true;
-                        break;	/// okay, finished with that item!
-                    }
+                        /// hoorray!
+                        if( item.id == itemId && item.read != true ) {
 
-                } /// for every item
+                            /// mark as read
+                            TastyGoogleReader.increaseGoodCounter( item.keywords );
+                            item.read = true;
+                            break;	/// okay, finished with that item!
+                        }
 
-                break;	/// there should be only this tab
+                    } /// for every item
 
-            } /// if tab id
+                    break;	/// there should be only this tab
 
-        } /// for every response
+                } /// if tab id
 
-        return;
+            } /// for every response
+
+            return;
+
+        } catch(e) {
+            dump( e + "\n" );
+        }
+
     },
 
 	
@@ -399,39 +461,46 @@ var TastyGoogleReader =
      */
     markItemAsUnread: function( tabId, itemId ) {
 
-        this.getDbConn();
+        try {
 
-        /// for every response in list ...
-        for( var r = 0; r < this.responseList.length; r++ ) {
+            this.getDbConn();
 
-            var response = this.responseList[r];
+            /// for every response in list ...
+            for( var r = 0; r < this.responseList.length; r++ ) {
 
-            /// is this the desired tab?
-            if( response.tabId == tabId ) {
+                var response = this.responseList[r];
 
-                /// for every item in response list ...
-                for( var i = 0; i < response.items.length; i++ ) {
+                /// is this the desired tab?
+                if( response.tabId == tabId ) {
 
-                    var item = response.items[i];
+                    /// for every item in response list ...
+                    for( var i = 0; i < response.items.length; i++ ) {
 
-                    /// hoorray!
-                    if( item.id == itemId && item.read == true ) {
+                        var item = response.items[i];
 
-                        /// mark as read
-                        TastyGoogleReader.decreaseGoodCounter( item.keywords );
-                        item.read = false;
-                        break;	/// okay, finished with that item!
-                    }
+                        /// hoorray!
+                        if( item.id == itemId && item.read == true ) {
 
-                } /// for every item
+                            /// mark as read
+                            TastyGoogleReader.decreaseGoodCounter( item.keywords );
+                            item.read = false;
+                            break;	/// okay, finished with that item!
+                        }
 
-                break;	/// there should be only this tab
+                    } /// for every item
 
-            } /// if tab id
+                    break;	/// there should be only this tab
 
-        } /// for every response
+                } /// if tab id
 
-        return;
+            } /// for every response
+
+            return;
+
+        } catch(e) {
+            dump( e + "\n" );
+        }
+
     },
 
 	
@@ -439,41 +508,48 @@ var TastyGoogleReader =
      * marks all items as read and increases the bad counter in th DB
      * for all unread items
      */
-    markAllAsRead: function( tabId, itemId ) {
+    markAllAsRead: function( tabId ) {
 
-        this.getDbConn();
+        try {
 
-        /// for every response in list ...
-        for( var r = 0; r < this.responseList.length; r++ ) {
+            this.getDbConn();
 
-            var response = this.responseList[r];
+            /// for every response in list ...
+            for( var r = 0; r < this.responseList.length; r++ ) {
 
-            /// is this the desired tab?
-            if( response.tabId == tabId ) {
+                var response = this.responseList[r];
 
-                /// for every item in response list ...
-                for( var i = 0; i < response.items.length; i++ ) {
+                /// is this the desired tab?
+                if( response.tabId == tabId ) {
 
-                    var item = response.items[i];
+                    /// for every item in response list ...
+                    for( var i = 0; i < response.items.length; i++ ) {
 
-                    /// only the unread items are uninteresting
-                    if( item.read != true ) {
-                        /// mark as read
-                        TastyGoogleReader.increaseBadCounter( item.keywords );
-                        item.read = true;
-                    }
+                        var item = response.items[i];
 
-                } /// for every item
+                        /// only the unread items are uninteresting
+                        if( item.read != true ) {
+                            /// mark as read
+                            TastyGoogleReader.increaseBadCounter( item.keywords );
+                            item.read = true;
+                        }
 
-                /// remove tab
-                this.removeResponse( tabId );
-                break;	/// there should be only this tab
+                    } /// for every item
 
-            } /// if tab id
+                    /// remove tab
+                    this.removeResponse( tabId );
+                    break;	/// there should be only this tab
 
-        } /// for every response
+                } /// if tab id
 
-        return;
+            } /// for every response
+
+            return;
+
+        } catch(e) {
+            dump( e + "\n" );
+        }
+
     },
 
 	

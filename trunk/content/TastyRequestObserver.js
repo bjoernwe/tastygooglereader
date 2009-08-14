@@ -137,7 +137,7 @@ var TastyRequestObserver =
             }
 
         } catch(e) {
-            dump( e + "\n" );
+            dump( e + ":\n" + e.stack + "\n" );
         }
     },
 

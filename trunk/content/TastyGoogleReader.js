@@ -101,7 +101,7 @@ var TastyGoogleReader =
             } /// for every response
 
         } catch(e) {
-            dump( e + "\n" );
+            dump( e + ":\n" + e.stack + "\n" );
         }
 
         return;
@@ -143,13 +143,10 @@ var TastyGoogleReader =
 
                 /// modifiy title
                 response.items[i].title = "[" + response.items[i].rating.toFixed(2) + "] " + response.items[i].title;
-
-                /// set status
-                topDoc.getElementById("loading-area-text").textContent = "[" + i + "]";
             }
 
         } catch(e) {
-            dump( e + "\n" );
+            dump( e + ":\n" + e.stack + "\n" );
         }
 
         return response;
@@ -179,7 +176,7 @@ var TastyGoogleReader =
             words.push( item.origin.streamId );
 
             /// extract words from title
-            newWords = TastyGoogleReader.extractWordsFromString( TastyGoogleReader.utf8to16( item.title ) );
+            newWords = TastyGoogleReader.extractWordsFromString( item.title );
             for( i = 0; i < newWords.length; i++ )
                 words.push( newWords[i] );
 
@@ -191,6 +188,8 @@ var TastyGoogleReader =
 
                 if( summary.search( "<" ) > -1 ) {
                     /// probably html contetn
+                    //newWords = TastyGoogleReader.extractWordsFromHtml( summary );
+                    dump( "summary: " + newWords + "\n" );
                 } else {
                     /// probably plaintext
                     newWords = TastyGoogleReader.extractWordsFromString( summary );
@@ -208,6 +207,8 @@ var TastyGoogleReader =
 
                 if( content.search( "<" ) > -1 ) {
                     /// probably html contetn
+                    //newWords = TastyGoogleReader.extractWordsFromHtml( content );
+                    dump( "content: " + newWords + "\n" );
                 } else {
                     /// probably plaintext
                     newWords = TastyGoogleReader.extractWordsFromString( content );
@@ -220,7 +221,7 @@ var TastyGoogleReader =
             return words;
 
         } catch(e) {
-            dump( e + "\n" );
+            dump( e + ":\n" + e.stack + "\n" );
         }
 
     },
@@ -243,7 +244,7 @@ var TastyGoogleReader =
             return words;
             
         } catch(e) {
-            dump( e + "\n" );
+            dump( e + ":\n" + e.stack + "\n" );
         }
 
     },
@@ -284,7 +285,7 @@ var TastyGoogleReader =
             return;
 
         } catch(e) {
-            dump( e + "\n" );
+            dump( e + ":\n" + e.stack + "\n" );
         }
         
     },
@@ -400,7 +401,7 @@ var TastyGoogleReader =
             return this.dbConn;
 
         } catch(e) {
-            dump( e + "\n" );
+            dump( e + ":\n" + e.stack + "\n" );
         }
         
     },
@@ -449,7 +450,7 @@ var TastyGoogleReader =
             return;
 
         } catch(e) {
-            dump( e + "\n" );
+            dump( e + ":\n" + e.stack + "\n" );
         }
 
     },
@@ -498,7 +499,7 @@ var TastyGoogleReader =
             return;
 
         } catch(e) {
-            dump( e + "\n" );
+            dump( e + ":\n" + e.stack + "\n" );
         }
 
     },
@@ -547,7 +548,7 @@ var TastyGoogleReader =
             return;
 
         } catch(e) {
-            dump( e + "\n" );
+            dump( e + ":\n" + e.stack + "\n" );
         }
 
     },
@@ -574,7 +575,7 @@ var TastyGoogleReader =
             this.dbConn.executeSimpleSQL( query );
 
         } catch(e) {
-            dump( e + "\n" );
+            dump( e + ":\n" + e.stack + "\n" );
         }
 
     },
@@ -600,7 +601,7 @@ var TastyGoogleReader =
             this.dbConn.executeSimpleSQL( query );
 
         } catch(e) {
-            dump( e + "\n" );
+            dump( e + ":\n" + e.stack + "\n" );
         }
 
     },
@@ -627,7 +628,7 @@ var TastyGoogleReader =
             this.dbConn.executeSimpleSQL( query );
 
         } catch(e) {
-            dump( e + "\n" );
+            dump( e + ":\n" + e.stack + "\n" );
         }
 
     },
@@ -698,6 +699,59 @@ var TastyGoogleReader =
 	
     itemSort: function( a, b ) {
         return b.rating - a.rating;
+    },
+
+
+    extractWordsFromHtml: function( s ) {
+
+        try {
+
+            var content = "";
+            var frame = document.getElementById( "tasty-iframe" );
+
+            if ( !frame ) {
+
+                // create iframe
+                frame = document.createElement("iframe"); // iframe or browser
+                frame.setAttribute("id", "tasty-iframe");
+                frame.setAttribute("name", "tasty-iframe");
+                frame.setAttribute("type", "content");
+                frame.style.setProperty('min-height', "0px", 'important');
+                frame.style.setProperty('height', "0px", 'important');
+                document.getElementById("main-window").appendChild(frame);
+                // or
+                //topDoc.documentElement.appendChild(frame);
+                //gBrowser.getBrowserForDocument(topDoc).appendChild(frame);
+
+                // set restrictions as needed
+                frame.webNavigation.allowAuth = false;
+                frame.webNavigation.allowImages = false;
+                frame.webNavigation.allowJavascript = false;
+                frame.webNavigation.allowMetaRedirects = true;
+                frame.webNavigation.allowPlugins = false;
+                frame.webNavigation.allowSubframes = false;
+            }
+
+            // load a page
+            frame.contentDocument.async = false;
+            frame.webNavigation.loadURI( "http://www.mozilla.org", Components.interfaces.nsIWebNavigation, null, null, null );
+            //frame.webNavigation.loadURI( "data:text/html," + s, Components.interfaces.nsIWebNavigation, null, null, null );
+            //alert( frame.contentDocument.body.textContent );
+            //while( frame.contentDocument.location.href == "about:blank" ) {}
+            dump( frame.contentDocument.location.href + "\n" );
+            content = frame.contentDocument.body.textContent;
+            //frame.contentDocument.location.href = "about:blank";
+            //frame.contentDocument.location.href = "http://www.mozilla.org/";
+            // or
+            // frame.webNavigation.loadURI("http://www.mozilla.org/",Components.interfaces.nsIWebNavigation,null,null,null);
+
+            //dump( "raw: " + content + "\n" );
+            return this.extractWordsFromString( content );
+
+        } catch(e) {
+            dump( e + ":\n" + e.stack + "\n" );
+        }
+        
     }
 
 };

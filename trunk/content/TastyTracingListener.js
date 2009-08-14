@@ -1,9 +1,9 @@
 function TastyTracingListener( topDoc, url, parameters ) {
-    this.topDoc 		= topDoc;
-    this.url    		= url;
-    this.parameters 	= parameters;
-    this.tabId 			= gBrowser.getBrowserForDocument(topDoc).parentNode.id;
-    this.receivedData 	= [];
+    this.topDoc         = topDoc;
+    this.url            = url;
+    this.parameters     = parameters;
+    this.tabId          = gBrowser.getBrowserForDocument(topDoc).parentNode.id;
+    this.receivedData   = [];
 }
 
 /**
@@ -74,7 +74,7 @@ TastyTracingListener.prototype =
             }
 
         } catch(e) {
-            dump( e + "\n" );
+            dump( e + ":\n" + e.stack + "\n" );
         }
 
     },

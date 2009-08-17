@@ -431,7 +431,7 @@ var TastyGoogleReader =
             }
 
             /// create table if it doesn't exist yet
-            var query = "CREATE TABLE IF NOT EXISTS 'Words' ( 'word' CHAR PRIMARY KEY NOT NULL, 'good' INTEGER NOT NULL DEFAULT 2, 'bad' INTEGER NOT NULL DEFAULT 2 )";
+            var query = "CREATE TABLE IF NOT EXISTS 'Words' ( 'word' CHAR PRIMARY KEY NOT NULL, 'good' INTEGER NOT NULL DEFAULT 5, 'bad' INTEGER NOT NULL DEFAULT 5 )";
             this.dbConn.executeSimpleSQL( query );
 
             return this.dbConn;

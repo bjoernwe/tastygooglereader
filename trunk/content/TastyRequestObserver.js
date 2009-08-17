@@ -43,7 +43,7 @@ var TastyRequestObserver =
                 /// is this request relevant for us?
                 if( url.search( this.googleReaderApi ) > -1 ) {
 
-                    dump( "http-on-modify-request: " + url + "\n" );
+                    //dump( "http-on-modify-request: " + url + "\n" );
 
                     /// find tab ID for this request
                     var tabId = TastyGoogleReader.getTabIDfromDOM( subject );
@@ -81,7 +81,7 @@ var TastyRequestObserver =
                         /// properly with a ziped response.
                         subject.setRequestHeader( "Accept-Encoding", "text/plain", false );
 
-                        dump( "feed requested: " + url + "\n" );
+                        //dump( "feed requested: " + url + "\n" );
 
                     } else if( url.search( this.googleReaderApiMarkAllRead ) > -1 ) {
 
@@ -142,7 +142,7 @@ var TastyRequestObserver =
                             dump( "TastyRequestObserver: unexpected requestMethod\n" );
                     }
 
-                    dump( "feed response: " + url + " + " + parameters + "\n" );
+                    //dump( "feed response: " + url + " + " + parameters + "\n" );
 
                     /// find top document for this request
                     var topDoc = TastyGoogleReader.getDocumentFromHttpRequest( subject );

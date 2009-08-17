@@ -176,7 +176,7 @@ var TastyGoogleReader =
             words.push( item.origin.streamId );
 
             /// extract words from title
-            newWords = TastyGoogleReader.extractWordsFromString( item.title );
+            newWords = this.extractWordsFromString( this.utf8to16( item.title ) );
             for( i = 0; i < newWords.length; i++ )
                 words.push( newWords[i] );
 
@@ -184,15 +184,15 @@ var TastyGoogleReader =
             newWords = [];
             if( item.summary ) {
 
-                var summary = TastyGoogleReader.utf8to16( item.summary.content );
+                var summary = item.summary.content;
 
                 if( summary.search( "<" ) > -1 ) {
-                    /// probably html contetn
-                    //newWords = TastyGoogleReader.extractWordsFromHtml( summary );
+                    /// probably html content
+                    newWords = this.extractWordsFromHtml( summary );
                     dump( "summary: " + newWords + "\n" );
                 } else {
                     /// probably plaintext
-                    newWords = TastyGoogleReader.extractWordsFromString( summary );
+                    newWords = this.extractWordsFromString( summary );
                 }
 
                 for( i = 0; i < newWords.length; i++ )
@@ -203,15 +203,15 @@ var TastyGoogleReader =
             newWords = [];
             if( item.content ) {
 
-                var content = TastyGoogleReader.utf8to16( item.content.content );
+                var content = item.content.content;
 
                 if( content.search( "<" ) > -1 ) {
-                    /// probably html contetn
-                    //newWords = TastyGoogleReader.extractWordsFromHtml( content );
+                    /// probably html content
+                    newWords = this.extractWordsFromHtml( content );
                     dump( "content: " + newWords + "\n" );
                 } else {
                     /// probably plaintext
-                    newWords = TastyGoogleReader.extractWordsFromString( content );
+                    newWords = this.extractWordsFromString( content );
                 }
 
                 for( i = 0; i < newWords.length; i++ )
@@ -233,9 +233,12 @@ var TastyGoogleReader =
     extractWordsFromString: function( s ) {
 
         try {
-            
+
             var word;
             var words = [];
+            /**
+             * \u00DF = ß
+             */
             var rexp = /([A-ZÄÖÜ][0-9A-ZÄÖÜß]+[0-9A-ZÄÖÜß])/gi;
 
             while( ( word = rexp.exec( s ) ) )
@@ -266,22 +269,35 @@ var TastyGoogleReader =
             //dump( query + "\n" );
             this.dbConn.executeSimpleSQL( query );
 
-            query = "SELECT word, good, bad, good+bad AS sum, 100*good/(good+bad) AS interesting FROM Words WHERE word = '"
-                  + item.keywords.join( "' OR word = '" ) + "'";
-            //dump( query + "\n" );
-            var statement = this.dbConn.createStatement( query );
-
             var product1 = 1.0;
             var product2 = 1.0;
 
-            while( statement.executeStep() ) {
-                product1 = product1 * statement.row.interesting / 100.0;
-                product2 = product2 * ( 100 - statement.row.interesting ) / 100.0;
-            }
+            var minWord = 0;
+            var maxWord = 250;
+
+            /// get rating for keywords in small steps. a huge query can be too
+            /// much for sqlite
+            do {
+
+                /// get rating for each keyword
+                query = "SELECT word, good, bad, good+bad AS sum, 100*good/(good+bad) AS interesting FROM Words WHERE word = '"
+                      + item.keywords.slice(minWord,maxWord).join( "' OR word = '" ) + "'";
+                //dump( query + "\n" );
+                var statement = this.dbConn.createStatement( query );
+
+                while( statement.executeStep() ) {
+                    product1 = product1 * statement.row.interesting / 100.0;
+                    product2 = product2 * ( 100 - statement.row.interesting ) / 100.0;
+                }
+
+                minWord = maxWord;
+                maxWord = maxWord + 250;
+
+            } while( minWord < item.keywords.length );
 
             //dump( product1 + " / " + product2 + "\n" );
-
             item.rating = product1 / ( product1 + product2 );
+
             return;
 
         } catch(e) {
@@ -395,7 +411,7 @@ var TastyGoogleReader =
             }
 
             /// create table if it doesn't exist yet
-            var query = "CREATE TABLE IF NOT EXISTS 'Words' ( 'word' CHAR PRIMARY KEY NOT NULL, 'good' INTEGER NOT NULL DEFAULT 1, 'bad' INTEGER NOT NULL DEFAULT 1 )";
+            var query = "CREATE TABLE IF NOT EXISTS 'Words' ( 'word' CHAR PRIMARY KEY NOT NULL, 'good' INTEGER NOT NULL DEFAULT 2, 'bad' INTEGER NOT NULL DEFAULT 2 )";
             this.dbConn.executeSimpleSQL( query );
 
             return this.dbConn;
@@ -719,9 +735,6 @@ var TastyGoogleReader =
                 frame.style.setProperty('min-height', "0px", 'important');
                 frame.style.setProperty('height', "0px", 'important');
                 document.getElementById("main-window").appendChild(frame);
-                // or
-                //topDoc.documentElement.appendChild(frame);
-                //gBrowser.getBrowserForDocument(topDoc).appendChild(frame);
 
                 // set restrictions as needed
                 frame.webNavigation.allowAuth = false;
@@ -733,20 +746,26 @@ var TastyGoogleReader =
             }
 
             // load a page
-            frame.contentDocument.async = false;
-            frame.webNavigation.loadURI( "http://www.mozilla.org", Components.interfaces.nsIWebNavigation, null, null, null );
-            //frame.webNavigation.loadURI( "data:text/html," + s, Components.interfaces.nsIWebNavigation, null, null, null );
-            //alert( frame.contentDocument.body.textContent );
-            //while( frame.contentDocument.location.href == "about:blank" ) {}
-            dump( frame.contentDocument.location.href + "\n" );
-            content = frame.contentDocument.body.textContent;
-            //frame.contentDocument.location.href = "about:blank";
-            //frame.contentDocument.location.href = "http://www.mozilla.org/";
-            // or
-            // frame.webNavigation.loadURI("http://www.mozilla.org/",Components.interfaces.nsIWebNavigation,null,null,null);
+            frame.webNavigation.loadURI( 'data:text/html;charset=UTF-8,' + s, Components.interfaces.nsIWebNavigation, null, null, null );
 
-            //dump( "raw: " + content + "\n" );
-            return this.extractWordsFromString( content );
+            /// wait until page is loaded
+            var thread = Components.classes["@mozilla.org/thread-manager;1"].getService(Components.interfaces.nsIThreadManager).currentThread;
+            while( frame.contentDocument.location.href == "about:blank" )
+                thread.processNextEvent(true);
+
+            ///
+            content = frame.contentDocument.body.textContent;
+            this.frame = frame;
+
+            /// unload page
+            frame.contentDocument.location.href = "about:blank";
+
+            /// wait until page is unloaded
+            thread = Components.classes["@mozilla.org/thread-manager;1"].getService(Components.interfaces.nsIThreadManager).currentThread;
+            while( frame.contentDocument.location.href != "about:blank" )
+                thread.processNextEvent(true);
+            
+            return this.extractWordsFromString( this.utf8to16( content ) );
 
         } catch(e) {
             dump( e + ":\n" + e.stack + "\n" );

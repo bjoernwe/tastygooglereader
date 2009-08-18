@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet href="chrome://tastygooglereader/skin/overlay.css" type="text/css"?>
+<!DOCTYPE overlay SYSTEM "chrome://tastygooglereader/locale/tastygooglereader.dtd">
+
+<overlay id="tastygooglereader-overlay" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+
+  <script src="TastyRequestObserver.js"/>
+  <script src="TastyTracingListener.js"/>
+  <script src="TastyGoogleReader.js"/>
+
+  <stringbundleset id="stringbundleset">
+    <stringbundle id="tastygooglereader-strings" src="chrome://tastygooglereader/locale/tastygooglereader.properties"/>
+  </stringbundleset>
+
+</overlay>

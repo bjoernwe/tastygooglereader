@@ -300,14 +300,14 @@ var TastyGoogleReader =
             do {
 
                 /// get rating for each keyword
-                query = "SELECT word, good, bad, good+bad AS sum, 10000*good/(good+bad) AS interesting FROM Words WHERE word = '"
+                query = "SELECT word, good, bad, good+bad AS sum, 100*good/(good+bad) AS interesting FROM Words WHERE word = '"
                       + item.keywords.slice(minWord,maxWord).join( "' OR word = '" ) + "'";
                 //dump( query + "\n" );
                 var statement = this.dbConn.createStatement( query );
 
                 while( statement.executeStep() ) {
-                    product1 = product1 * statement.row.interesting / 10000.0;
-                    product2 = product2 * ( 10000 - statement.row.interesting ) / 10000.0;
+                    product1 = product1 * statement.row.interesting / 100.0;
+                    product2 = product2 * ( 100 - statement.row.interesting ) / 100.0;
                 }
 
                 minWord = maxWord;

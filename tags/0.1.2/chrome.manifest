@@ -1,0 +1,4 @@
+content	tastygooglereader	content/
+locale	tastygooglereader	en-US	locale/en-US/
+skin	tastygooglereader	classic/1.0	skin/
+overlay	chrome://browser/content/browser.xul	chrome://tastygooglereader/content/firefoxOverlay.xul

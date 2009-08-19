@@ -209,7 +209,7 @@ var TastyGoogleReader =
                 if( summary.search( "<" ) > -1 ) {
                     /// probably html content
                     newWords = this.extractWordsFromHtml( summary );
-                    dump( "summary: " + newWords + "\n" );
+                    //dump( "summary: " + newWords + "\n" );
                 } else {
                     /// probably plaintext
                     newWords = this.extractWordsFromString( summary );
@@ -228,7 +228,7 @@ var TastyGoogleReader =
                 if( content.search( "<" ) > -1 ) {
                     /// probably html content
                     newWords = this.extractWordsFromHtml( content );
-                    dump( "content: " + newWords + "\n" );
+                    //dump( "content: " + newWords + "\n" );
                 } else {
                     /// probably plaintext
                     newWords = this.extractWordsFromString( content );
@@ -470,7 +470,7 @@ var TastyGoogleReader =
                         if( item.id == itemId && item.read != true ) {
 
                             /// mark as read
-                            TastyGoogleReader.increaseGoodCounter( item.keywords );
+                            TastyGoogleReader.increaseGoodCounter( item );
                             item.read = true;
                             break;	/// okay, finished with that item!
                         }
@@ -519,7 +519,7 @@ var TastyGoogleReader =
                         if( item.id == itemId && item.read == true ) {
 
                             /// mark as read
-                            TastyGoogleReader.decreaseGoodCounter( item.keywords );
+                            TastyGoogleReader.decreaseGoodCounter( item );
                             item.read = false;
                             break;	/// okay, finished with that item!
                         }
@@ -567,7 +567,7 @@ var TastyGoogleReader =
                         /// only the unread items are uninteresting
                         if( item.read != true ) {
                             /// mark as read
-                            TastyGoogleReader.increaseBadCounter( item.keywords );
+                            TastyGoogleReader.increaseBadCounter( item );
                             item.read = true;
                         }
 
@@ -593,21 +593,27 @@ var TastyGoogleReader =
     /**
      * increases the good counter for all words in the given array.
      */
-    increaseGoodCounter: function( keywords ) {
+    increaseGoodCounter: function( item ) {
 
         try {
+
+            // extract keywords from item
+            if( item.keywords == null )
+                item.keywords = this.extractWordsFromItem( item );
+
+            dump( "* increase: " + item.keywords + "\n" );
 
             this.getDbConn();
 
             /// make sure, every keyword is present in db with default values
-            //var query = "INSERT OR IGNORE INTO Words (word) VALUES('"
-            //          + keywords.join( "'); INSERT OR IGNORE INTO Words (word) VALUES('" )
-            //		  + "')";
-            //this.dbConn.executeSimpleSQL( query );
+            var query = "INSERT OR IGNORE INTO Words (word) VALUES('"
+                      + item.keywords.join( "'); INSERT OR IGNORE INTO Words (word) VALUES('" )
+            		  + "')";
+            this.dbConn.executeSimpleSQL( query );
 
             /// increase the counter
-            var query = "UPDATE Words SET good = good + 1 WHERE word = '"
-                      + keywords.join( "' OR word = '" ) + "'";
+            query = "UPDATE Words SET good = good + 1 WHERE word = '"
+                      + item.keywords.join( "' OR word = '" ) + "'";
             this.dbConn.executeSimpleSQL( query );
 
         } catch(e) {
@@ -619,9 +625,15 @@ var TastyGoogleReader =
     /**
      * decreases the good counter for all given words
      */
-    decreaseGoodCounter: function( keywords ) {
+    decreaseGoodCounter: function( item ) {
 
         try {
+
+            // extract keywords from item
+            if( item.keywords == null )
+                item.keywords = this.extractWordsFromItem( item );
+
+            dump( "* decrease: " + item.keywords + "\n" );
 
             this.getDbConn();
 
@@ -633,7 +645,7 @@ var TastyGoogleReader =
 
             /// update the counters
             var query = "UPDATE Words SET good = good - 1 WHERE word = '"
-                      + keywords.join( "' OR word = '" ) + "'";
+                      + item.keywords.join( "' OR word = '" ) + "'";
             this.dbConn.executeSimpleSQL( query );
 
         } catch(e) {
@@ -646,21 +658,27 @@ var TastyGoogleReader =
     /**
      * increases the bad counter for all words in the given array.
      */
-    increaseBadCounter: function( keywords ) {
+    increaseBadCounter: function( item ) {
 
         try {
+
+            // extract keywords from item
+            if( item.keywords == null )
+                item.keywords = this.extractWordsFromItem( item );
+
+            dump( "* decrease: " + item.keywords + "\n" );
 
             this.getDbConn();
 
             /// make sure, every keyword is present in db with default values
-            //var query = "INSERT OR IGNORE INTO Words (word) VALUES('"
-            //          + keywords.join( "'); INSERT OR IGNORE INTO Words (word) VALUES('" )
-            //		  + "')";
-            //this.dbConn.executeSimpleSQL( query );
+            var query = "INSERT OR IGNORE INTO Words (word) VALUES('"
+                      + item.keywords.join( "'); INSERT OR IGNORE INTO Words (word) VALUES('" )
+            		  + "')";
+            this.dbConn.executeSimpleSQL( query );
 
             /// increase the counter
-            var query = "UPDATE Words SET bad = bad + 1 WHERE word = '"
-                      + keywords.join( "' OR word = '" ) + "'";
+            query = "UPDATE Words SET bad = bad + 1 WHERE word = '"
+                      + item.keywords.join( "' OR word = '" ) + "'";
             this.dbConn.executeSimpleSQL( query );
 
         } catch(e) {

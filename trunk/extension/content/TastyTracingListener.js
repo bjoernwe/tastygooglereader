@@ -72,9 +72,10 @@ TastyTracingListener.prototype =
 
                 /// sort response and re-code it
                 var response = JSON.parse( s );
-                TastyGoogleReader.processResponse( response, this.topDoc );
-                if( paramR == "m" )
+                if( paramR == "m" ) {
+                    TastyGoogleReader.processResponse( response, this.topDoc );
                     response.items.sort( TastyGoogleReader.itemSort );
+                }
                 s = JSON.stringify( response );
 
                 /// hand on the sorted response

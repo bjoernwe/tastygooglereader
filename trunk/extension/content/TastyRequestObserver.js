@@ -29,7 +29,7 @@ var TastyRequestObserver =
     googleReaderApiMarkAllRead: /^https?:\/\/www\.google\.com\/reader\/api\/0\/mark-all-as-read/i,
     googleReaderApiParameters:  /^(https?:\/\/www\.google\.com\/reader\/api\/0\/[^?]*\?)(.*)/i,
     googleReaderParametersAI:   /a=[^&]+%2F([^&]+).*i=([^&]*)/i,
-    googleReaderParametersR:    /&r=([^&]*)/i,	/// RegExp to find/extract parameter r (ordering)
+    googleReaderParametersR:    /[?&]?r=([^&]*)/i,	/// RegExp to find/extract parameter r (ordering)
 
     observe: function( subject, topic, data ) {
 
@@ -85,20 +85,20 @@ var TastyRequestObserver =
 
                     } else if( url.search( this.googleReaderApiMarkAllRead ) > -1 ) {
 
-                        dump( "mark all as read\n" );
+                        //dump( "mark all as read\n" );
                         TastyGoogleReader.markAllAsRead( tabId );
 
                     } else if( url.search( this.googleReaderApiEditTag ) > -1 ) {
 
-                        dump( "edit tag\n" );
-                        dump( url + "\n" );
-                        dump( parameters + "\n" );
+                        //dump( "edit tag\n" );
+                        //dump( url + "\n" );
+                        //dump( parameters + "\n" );
 
                         var p      = parameters.match( this.googleReaderParametersAI );
                         var action = p[1];
                         var itemId = decodeURIComponent( p[2] );
 
-                        dump( action + ": " + itemId + "\n" );
+                        //dump( action + ": " + itemId + "\n" );
 
                         switch( action ) {
                             case "read":

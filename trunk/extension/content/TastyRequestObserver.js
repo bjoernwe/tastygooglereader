@@ -95,7 +95,7 @@ var TastyRequestObserver =
                         //dump( parameters + "\n" );
 
                         var p      = parameters.match( this.googleReaderParametersAI );
-                        var action = p[1];
+                        var action = p ? p[1] : "none";
                         var itemId = decodeURIComponent( p[2] );
 
                         //dump( action + ": " + itemId + "\n" );

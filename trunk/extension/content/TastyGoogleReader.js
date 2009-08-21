@@ -289,8 +289,7 @@ var TastyGoogleReader =
             //dump( query + "\n" );
             this.dbConn.executeSimpleSQL( query );
 
-            var product1 = 1.0;
-            var product2 = 1.0;
+            var rows = [];
 
             var minWord = 0;
             var maxWord = 250;
@@ -300,20 +299,36 @@ var TastyGoogleReader =
             do {
 
                 /// get rating for each keyword
-                query = "SELECT word, good, bad, good+bad AS sum, 10000*good/(good+bad) AS interesting FROM Words WHERE word = '"
-                      + item.keywords.slice(minWord,maxWord).join( "' OR word = '" ) + "'";
-                //dump( query + "\n" );
+                query = "SELECT word, good, bad, 10000*good/(good+bad) AS rating, ABS((SELECT 10000*SUM(good)/SUM(good+bad) FROM Words)-10000*good/(good+bad)) AS relevance FROM Words WHERE word = '"
+                      + item.keywords.slice(minWord,maxWord).join( "' OR word = '" ) + "' ORDER BY relevance DESC LIMIT 20";
+                dump( query + "\n" );
                 var statement = this.dbConn.createStatement( query );
 
                 while( statement.executeStep() ) {
-                    product1 = product1 * statement.row.interesting / 10000.0;
-                    product2 = product2 * ( 10000 - statement.row.interesting ) / 10000.0;
+                    rows.push( { word: statement.row.word, rating: statement.row.rating } );
                 }
 
                 minWord = maxWord;
                 maxWord = maxWord + 250;
 
             } while( minWord < item.keywords.length );
+
+            /// sort list of rows
+            rows.sort( this.sortRows );
+
+            /// remove duplicates
+            for( var i = 0; i < rows.length-1; i++ )
+                while( rows[i+1] && rows[i].word == rows[i+1].word )
+                    rows.splice( i, 1 );
+
+            var product1 = 1.0;
+            var product2 = 1.0;
+
+            for( var i = 0; i < Math.min( 20, rows.length ); i++ ) {
+                dump( rows[i].word + ": " + rows[i].rating + "\n" );
+                product1 = product1 * rows[i].rating / 10000.0;
+                product2 = product2 * ( 10000 - rows[i].rating ) / 10000.0;
+            }
 
             //dump( product1 + " / " + product2 + "\n" );
             item.rating = product1 / ( product1 + product2 );
@@ -431,7 +446,7 @@ var TastyGoogleReader =
             }
 
             /// create table if it doesn't exist yet
-            var query = "CREATE TABLE IF NOT EXISTS 'Words' ( 'word' CHAR PRIMARY KEY NOT NULL, 'good' INTEGER NOT NULL DEFAULT 5, 'bad' INTEGER NOT NULL DEFAULT 5 )";
+            var query = "CREATE TABLE IF NOT EXISTS 'Words' ( 'word' CHAR PRIMARY KEY NOT NULL, 'good' INTEGER NOT NULL DEFAULT 3, 'bad' INTEGER NOT NULL DEFAULT 3 )";
             this.dbConn.executeSimpleSQL( query );
 
             return this.dbConn;
@@ -753,6 +768,11 @@ var TastyGoogleReader =
 	
     itemSort: function( a, b ) {
         return b.rating - a.rating;
+    },
+
+
+    sortRows: function( a, b ) {
+        return b.relevance - a.relevance;
     },
 
 

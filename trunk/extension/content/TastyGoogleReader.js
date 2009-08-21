@@ -305,7 +305,7 @@ var TastyGoogleReader =
             do {
 
                 /// get rating for each keyword
-                query = "SELECT word, good, bad, 10000*good/(good+bad) AS rating, ABS((SELECT 10000*SUM(good)/SUM(good+bad) FROM Words)-10000*good/(good+bad)) AS relevance FROM Words WHERE word = '"
+                query = "SELECT word, good, bad, 10000*good/(good+bad) AS rating, ABS(5000-10000*good/(good+bad)) AS relevance FROM Words WHERE word = '"
                       + item.keywords.slice(minWord,maxWord).join( "' OR word = '" ) + "' ORDER BY relevance DESC LIMIT " + numOfRelevantWords;
                 //dump( query + "\n" );
                 var statement = this.dbConn.createStatement( query );

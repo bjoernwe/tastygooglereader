@@ -279,6 +279,12 @@ var TastyGoogleReader =
     rateItem: function( item ) {
 
         try {
+
+            var prefs = Components.classes["@mozilla.org/preferences-service;1"]
+                            .getService(Components.interfaces.nsIPrefService);
+            prefs = prefs.getBranch("extensions.tastygooglereader.");
+
+            var numOfRelevantWords = prefs.getIntPref( "num_of_relevant_words" );
             
             this.getDbConn();
 
@@ -300,8 +306,8 @@ var TastyGoogleReader =
 
                 /// get rating for each keyword
                 query = "SELECT word, good, bad, 10000*good/(good+bad) AS rating, ABS((SELECT 10000*SUM(good)/SUM(good+bad) FROM Words)-10000*good/(good+bad)) AS relevance FROM Words WHERE word = '"
-                      + item.keywords.slice(minWord,maxWord).join( "' OR word = '" ) + "' ORDER BY relevance DESC LIMIT 20";
-                dump( query + "\n" );
+                      + item.keywords.slice(minWord,maxWord).join( "' OR word = '" ) + "' ORDER BY relevance DESC LIMIT " + numOfRelevantWords;
+                //dump( query + "\n" );
                 var statement = this.dbConn.createStatement( query );
 
                 while( statement.executeStep() ) {
@@ -324,8 +330,8 @@ var TastyGoogleReader =
             var product1 = 1.0;
             var product2 = 1.0;
 
-            for( var i = 0; i < Math.min( 20, rows.length ); i++ ) {
-                dump( rows[i].word + ": " + rows[i].rating + "\n" );
+            for( var i = 0; i < Math.min( numOfRelevantWords, rows.length ); i++ ) {
+                //dump( rows[i].word + ": " + rows[i].rating + "\n" );
                 product1 = product1 * rows[i].rating / 10000.0;
                 product2 = product2 * ( 10000 - rows[i].rating ) / 10000.0;
             }

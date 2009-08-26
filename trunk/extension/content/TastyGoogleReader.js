@@ -31,7 +31,7 @@ var TastyGoogleReader =
     onLoad: function() {
         dump( "TastyGoogleReader " );
         TastyRequestObserver.register();
-        gBrowser.tabContainer.addEventListener( "TabClose", TastyGoogleReader.onTabRemoved, false );
+        gBrowser.tabContainer.addEventListener( "TabClose", this.onTabRemoved, false );
         dump( "initialized\n" );
     },
 
@@ -155,15 +155,18 @@ var TastyGoogleReader =
             for( var i = 0; i < response.items.length; i++ ) {
 
                 var item = response.items[i];
-                var wordList = TastyGoogleReader.extractWordsFromItem( item );
+                var wordList = this.extractWordsFromItem( item );
                 item.keywords = wordList;	/// save the results for later
-                TastyGoogleReader.rateItem( item );
+                this.rateItem( item );
 
                 //dump( wordList.length + ": " + wordList + "\n" );
 
                 /// modifiy title
                 response.items[i].title = "[" + response.items[i].rating.toFixed(2) + "] " + response.items[i].title;
             }
+
+            /// set status
+            topDoc.getElementById("loading-area-text").textContent = "Loading";
 
         } catch(e) {
             dump( e + ":\n" + e.stack + "\n" );
@@ -196,9 +199,11 @@ var TastyGoogleReader =
             words.push( item.origin.streamId );
 
             /// extract words from title
-            newWords = this.extractWordsFromString( this.utf8to16( item.title ) );
-            for( i = 0; i < newWords.length; i++ )
-                words.push( newWords[i] );
+            if( item.title ) {
+                newWords = this.extractWordsFromString( this.utf8to16( item.title ) );
+                for( i = 0; i < newWords.length; i++ )
+                    words.push( newWords[i] );
+            }
 
             /// extract summary
             newWords = [];
@@ -212,7 +217,7 @@ var TastyGoogleReader =
                     //dump( "summary: " + newWords + "\n" );
                 } else {
                     /// probably plaintext
-                    newWords = this.extractWordsFromString( summary );
+                    newWords = this.extractWordsFromString( this.utf8to16( summary ) );
                 }
 
                 for( i = 0; i < newWords.length; i++ )
@@ -231,7 +236,7 @@ var TastyGoogleReader =
                     //dump( "content: " + newWords + "\n" );
                 } else {
                     /// probably plaintext
-                    newWords = this.extractWordsFromString( content );
+                    newWords = this.extractWordsFromString( this.utf8to16( content ) );
                 }
 
                 for( i = 0; i < newWords.length; i++ )
@@ -293,7 +298,13 @@ var TastyGoogleReader =
                       + item.keywords.join( "'); INSERT OR IGNORE INTO Words (word) VALUES('" )
                       + "')";
             //dump( query + "\n" );
-            this.dbConn.executeSimpleSQL( query );
+            dthis.dbConn.executeSimpleSQL( query );
+
+            /// get relevance baseline
+            query = "SELECT MIN(5000,10000*SUM(good)/SUM(good+bad)) AS baseline FROM Words";
+            var statement = this.dbConn.createStatement( query );
+            statement.executeStep();
+            var baseline = statement.row.baseline;
 
             var rows = [];
 
@@ -305,13 +316,15 @@ var TastyGoogleReader =
             do {
 
                 /// get rating for each keyword
-                query = "SELECT word, good, bad, 10000*good/(good+bad) AS rating, ABS(5000-10000*good/(good+bad)) AS relevance FROM Words WHERE word = '"
+                query = "SELECT word, good, bad, 10000*good/(good+bad) AS rating, ABS(" + baseline + "-10000*good/(good+bad)) AS relevance FROM Words WHERE word = '"
                       + item.keywords.slice(minWord,maxWord).join( "' OR word = '" ) + "' ORDER BY relevance DESC LIMIT " + numOfRelevantWords;
                 //dump( query + "\n" );
-                var statement = this.dbConn.createStatement( query );
+                statement = this.dbConn.createStatement( query );
 
+                dump( "most relevant words for '" + item.title + "':\n" );
                 while( statement.executeStep() ) {
                     rows.push( { word: statement.row.word, rating: statement.row.rating } );
+                    dump( statement.row.word + ": " + statement.row.rating + "\n" );
                 }
 
                 minWord = maxWord;
@@ -491,7 +504,7 @@ var TastyGoogleReader =
                         if( item.id == itemId && item.read != true ) {
 
                             /// mark as read
-                            TastyGoogleReader.increaseGoodCounter( item );
+                            this.increaseGoodCounter( item );
                             item.read = true;
                             break;	/// okay, finished with that item!
                         }
@@ -540,7 +553,7 @@ var TastyGoogleReader =
                         if( item.id == itemId && item.read == true ) {
 
                             /// mark as read
-                            TastyGoogleReader.decreaseGoodCounter( item );
+                            this.decreaseGoodCounter( item );
                             item.read = false;
                             break;	/// okay, finished with that item!
                         }
@@ -588,7 +601,7 @@ var TastyGoogleReader =
                         /// only the unread items are uninteresting
                         if( item.read != true ) {
                             /// mark as read
-                            TastyGoogleReader.increaseBadCounter( item );
+                            this.increaseBadCounter( item );
                             item.read = true;
                         }
 
@@ -629,7 +642,7 @@ var TastyGoogleReader =
             /// make sure, every keyword is present in db with default values
             var query = "INSERT OR IGNORE INTO Words (word) VALUES('"
                       + item.keywords.join( "'); INSERT OR IGNORE INTO Words (word) VALUES('" )
-            		  + "')";
+                      + "')";
             this.dbConn.executeSimpleSQL( query );
 
             /// increase the counter
@@ -694,7 +707,7 @@ var TastyGoogleReader =
             /// make sure, every keyword is present in db with default values
             var query = "INSERT OR IGNORE INTO Words (word) VALUES('"
                       + item.keywords.join( "'); INSERT OR IGNORE INTO Words (word) VALUES('" )
-            		  + "')";
+                      + "')";
             this.dbConn.executeSimpleSQL( query );
 
             /// increase the counter

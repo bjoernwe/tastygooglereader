@@ -298,7 +298,7 @@ var TastyGoogleReader =
                       + item.keywords.join( "'); INSERT OR IGNORE INTO Words (word) VALUES('" )
                       + "')";
             //dump( query + "\n" );
-            dthis.dbConn.executeSimpleSQL( query );
+            this.dbConn.executeSimpleSQL( query );
 
             /// get relevance baseline
             query = "SELECT MIN(5000,10000*SUM(good)/SUM(good+bad)) AS baseline FROM Words";
@@ -316,15 +316,13 @@ var TastyGoogleReader =
             do {
 
                 /// get rating for each keyword
-                query = "SELECT word, good, bad, 10000*good/(good+bad) AS rating, ABS(" + baseline + "-10000*good/(good+bad)) AS relevance FROM Words WHERE word = '"
+                query = "SELECT word, good, bad, ABS(" + baseline + "-10000*good/(good+bad)) AS relevance FROM Words WHERE word = '"
                       + item.keywords.slice(minWord,maxWord).join( "' OR word = '" ) + "' ORDER BY relevance DESC LIMIT " + numOfRelevantWords;
                 //dump( query + "\n" );
                 statement = this.dbConn.createStatement( query );
 
-                dump( "most relevant words for '" + item.title + "':\n" );
                 while( statement.executeStep() ) {
-                    rows.push( { word: statement.row.word, rating: statement.row.rating } );
-                    dump( statement.row.word + ": " + statement.row.rating + "\n" );
+                    rows.push( { word: statement.row.word, good: statement.row.good, bad: statement.row.bad } );
                 }
 
                 minWord = maxWord;
@@ -340,17 +338,32 @@ var TastyGoogleReader =
                 while( rows[i+1] && rows[i].word == rows[i+1].word )
                     rows.splice( i, 1 );
 
-            var product1 = 1.0;
-            var product2 = 1.0;
+            var product_f1 = 1.0;
+            var product_f2 = 1.0;
+            var s = 5.0;    // strength of a-priori information
+            var x = 0.5;    // assumed a-priori probability for haminess
+            var N = Math.min( numOfRelevantWords, rows.length );
 
-            for( var i = 0; i < Math.min( numOfRelevantWords, rows.length ); i++ ) {
-                //dump( rows[i].word + ": " + rows[i].rating + "\n" );
-                product1 = product1 * rows[i].rating / 10000.0;
-                product2 = product2 * ( 10000 - rows[i].rating ) / 10000.0;
+            dump( "most relevant words for '" + item.title + "':\n" );
+            for( var i = 0; i < N; i++ ) {
+                var n = rows[i].good + rows[i].bad;
+                var p = n != 0 ? rows[i].bad / n : 0.5;
+                var q = 1.0 - p;
+                product_f1 = product_f1 * ( s * x + n * p ) / ( s + n );
+                product_f2 = product_f2 * ( s * x + n * q ) / ( s + n );
+                dump( rows[i].word + ": " + q + "\n" );
             }
 
+            var H = this.chi2P( -2*Math.log( product_f1 ), 2*N );
+            var S = this.chi2P( -2*Math.log( product_f2 ), 2*N );
+
+            dump( "product_f1: " + product_f1 + "\n" );
+            dump( "product_f2: " + product_f2 + "\n" );
+            dump( "H: " + H + "\n" );
+            dump( "S: " + S + "\n" );
+
             //dump( product1 + " / " + product2 + "\n" );
-            item.rating = product1 / ( product1 + product2 );
+            item.rating = ( 1.0 + S - H ) / 2.0;
 
             return;
 
@@ -358,6 +371,18 @@ var TastyGoogleReader =
             dump( e + ":\n" + e.stack + "\n" );
         }
         
+    },
+
+
+    chi2P: function( chi, df ) {
+        var m = chi / 2.0;
+        var term = Math.exp(-m);
+        var sum = term;
+        for( var i = 1; i < df/2; i++ ) {
+            term *= m / i;
+            sum += term
+        }
+        return Math.min( 1.0, sum );
     },
 	
 
@@ -465,7 +490,7 @@ var TastyGoogleReader =
             }
 
             /// create table if it doesn't exist yet
-            var query = "CREATE TABLE IF NOT EXISTS 'Words' ( 'word' CHAR PRIMARY KEY NOT NULL, 'good' INTEGER NOT NULL DEFAULT 3, 'bad' INTEGER NOT NULL DEFAULT 3 )";
+            var query = "CREATE TABLE IF NOT EXISTS 'Words' ( 'word' CHAR PRIMARY KEY NOT NULL, 'good' INTEGER NOT NULL DEFAULT 0, 'bad' INTEGER NOT NULL DEFAULT 0 )";
             this.dbConn.executeSimpleSQL( query );
 
             return this.dbConn;

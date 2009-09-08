@@ -166,7 +166,7 @@ var TastyGoogleReader =
             }
 
             /// set status
-            topDoc.getElementById("loading-area-text").textContent = "Loading";
+            topDoc.getElementById("loading-area-text").textContent = "Loading...";
 
         } catch(e) {
             dump( e + ":\n" + e.stack + "\n" );
@@ -305,6 +305,7 @@ var TastyGoogleReader =
             var statement = this.dbConn.createStatement( query );
             statement.executeStep();
             var baseline = statement.row.baseline;
+            statement.reset();
 
             var rows = [];
 
@@ -325,6 +326,7 @@ var TastyGoogleReader =
                     rows.push( { word: statement.row.word, good: statement.row.good, bad: statement.row.bad } );
                 }
 
+                statement.reset();
                 minWord = maxWord;
                 maxWord = maxWord + 250;
 
@@ -344,23 +346,23 @@ var TastyGoogleReader =
             var x = 0.5;    // assumed a-priori probability for haminess
             var N = Math.min( numOfRelevantWords, rows.length );
 
-            dump( "most relevant words for '" + item.title + "':\n" );
+            //dump( "most relevant words for '" + item.title + "':\n" );
             for( var i = 0; i < N; i++ ) {
                 var n = rows[i].good + rows[i].bad;
                 var p = n != 0 ? rows[i].bad / n : 0.5;
                 var q = 1.0 - p;
                 product_f1 = product_f1 * ( s * x + n * p ) / ( s + n );
                 product_f2 = product_f2 * ( s * x + n * q ) / ( s + n );
-                dump( rows[i].word + ": " + q + "\n" );
+                //dump( rows[i].word + ": " + q + "\n" );
             }
 
             var H = this.chi2P( -2*Math.log( product_f1 ), 2*N );
             var S = this.chi2P( -2*Math.log( product_f2 ), 2*N );
 
-            dump( "product_f1: " + product_f1 + "\n" );
-            dump( "product_f2: " + product_f2 + "\n" );
-            dump( "H: " + H + "\n" );
-            dump( "S: " + S + "\n" );
+            //dump( "product_f1: " + product_f1 + "\n" );
+            //dump( "product_f2: " + product_f2 + "\n" );
+            //dump( "H: " + H + "\n" );
+            //dump( "S: " + S + "\n" );
 
             //dump( product1 + " / " + product2 + "\n" );
             item.rating = ( 1.0 + S - H ) / 2.0;
@@ -369,6 +371,9 @@ var TastyGoogleReader =
 
         } catch(e) {
             dump( e + ":\n" + e.stack + "\n" );
+        } finally {
+            if( statement )
+                statement.reset();
         }
         
     },
@@ -483,20 +488,54 @@ var TastyGoogleReader =
                 this.dbFile.append( "tastygooglereader.sqlite" );
             }
 
+            /// wait until (other) db access is finished
+            var thread = Components.classes["@mozilla.org/thread-manager;1"].getService(Components.interfaces.nsIThreadManager).currentThread;
+            while( this.db_lock )
+                thread.processNextEvent(true);
+
             /// get connection to database
             if( this.dbConn == null ) {
+                this.db_lock = true;
+
+                /// the connection itself
                 var storageService = Components.classes["@mozilla.org/storage/service;1"].getService(Components.interfaces.mozIStorageService);
                 this.dbConn = storageService.openDatabase( this.dbFile );
-            }
 
-            /// create table if it doesn't exist yet
-            var query = "CREATE TABLE IF NOT EXISTS 'Words' ( 'word' CHAR PRIMARY KEY NOT NULL, 'good' INTEGER NOT NULL DEFAULT 0, 'bad' INTEGER NOT NULL DEFAULT 0 )";
-            this.dbConn.executeSimpleSQL( query );
+                /// check version of database
+                var query = "PRAGMA user_version";
+                var statement = this.dbConn.createStatement( query );
+                statement.executeStep();
+                var user_version = statement.row.user_version;
+                statement.reset();
+
+                /// update database
+                if( user_version < 1 ) {
+                    dump( "TastyGoogleReader: Update requires a new database. The old one will be dropped. Sorry!" );
+                    query = "DROP TABLE IF EXISTS Words";
+                    this.dbConn.executeSimpleSQL( query );
+                    query = "CREATE TABLE 'Words' ( 'word' CHAR PRIMARY KEY NOT NULL, 'good' INTEGER NOT NULL DEFAULT 0, 'bad' INTEGER NOT NULL DEFAULT 0 )";
+                    this.dbConn.executeSimpleSQL( query );
+                    query = "PRAGMA user_version = 1";
+                    this.dbConn.executeSimpleSQL( query );
+                }
+
+                /// create table if it doesn't exist yet
+                query = "CREATE TABLE IF NOT EXISTS 'Words' ( 'word' CHAR PRIMARY KEY NOT NULL, 'good' INTEGER NOT NULL DEFAULT 0, 'bad' INTEGER NOT NULL DEFAULT 0 )";
+                this.dbConn.executeSimpleSQL( query );
+                query = "PRAGMA user_version = 1";
+                this.dbConn.executeSimpleSQL( query );
+                
+                this.db_lock = false;
+            }
 
             return this.dbConn;
 
         } catch(e) {
             dump( e + ":\n" + e.stack + "\n" );
+        } finally {
+            this.db_lock = false;
+            if( statement )
+                statement.reset();
         }
         
     },

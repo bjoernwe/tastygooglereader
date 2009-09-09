@@ -360,8 +360,8 @@ var TastyGoogleReader =
 
             var product_f1 = 1.0;
             var product_f2 = 1.0;
-            var s  = 10;//prefs.getIntPref( "weight_of_uncertainty" );    // strength of a-priori information (x=0.5)
-            var s0 = 5;//prefs.getIntPref( "max_weight_of_global" );
+            var s  = prefs.getIntPref( "weight_of_uncertainty" );    // strength of a-priori information (x=0.5)
+            var s0 = prefs.getIntPref( "max_weight_of_global" );
             var x  = 0.5;    // assumed a-priori probability for haminess
             var N  = Math.min( numOfRelevantWords, rows.length );
 

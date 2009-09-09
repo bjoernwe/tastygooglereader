@@ -327,10 +327,18 @@ var TastyGoogleReader =
                 /// remember all the results 'cause we want to reset the statements
                 while( statement.executeStep() ) {
 
-                    rows.push( { word: statement.row.word, good: statement.row.good, bad: statement.row.bad } );
+                    var word = statement.row.word;
+                    var good = statement.row.good;
+                    var bad  = statement.row.bad;
+
+                    rows.push( { word: word, good: good, bad: bad } );
 
                     /// okay, for every feed-specific word stats, we also want to know the global stats
-                    query = "";
+                    query = "SELECT SUM(tofu) AS good, SUM(spam) AS bad FROM Words WHERE word = '" + word + "'";
+                    var statement0 = this.dbConn.createStatement( query );
+                    statement0.executeStep();
+                    rows0.push( { word: word, good: statement0.row.good - good, bad: statement0.row.bad - bad } );
+                    statement0.reset();
 
                 }
 
@@ -345,22 +353,32 @@ var TastyGoogleReader =
 
             /// remove duplicates
             for( var i = 0; i < rows.length-1; i++ )
-                while( rows[i+1] && rows[i].word == rows[i+1].word )
+                while( rows[i+1] && rows[i].word == rows[i+1].word ) {
                     rows.splice( i, 1 );
+                    rows0.splice( i, 1 );
+                }
 
             var product_f1 = 1.0;
             var product_f2 = 1.0;
-            var s = prefs.getIntPref( "weight_of_uncertainty" );    // strength of a-priori information (x=0.5)
-            var x = 0.5;    // assumed a-priori probability for haminess
-            var N = Math.min( numOfRelevantWords, rows.length );
+            var s  = 10;//prefs.getIntPref( "weight_of_uncertainty" );    // strength of a-priori information (x=0.5)
+            var s0 = 5;//prefs.getIntPref( "max_weight_of_global" );
+            var x  = 0.5;    // assumed a-priori probability for haminess
+            var N  = Math.min( numOfRelevantWords, rows.length );
 
-            //dump( "most relevant words for '" + item.title + "':\n" );
+            dump( "most relevant words for '" + item.title + "':\n" );
             for( i = 0; i < N; i++ ) {
-                var n = rows[i].good + rows[i].bad;
-                var p = n != 0 ? rows[i].bad / n : 0.5;
-                var q = 1.0 - p;
-                product_f1 = product_f1 * ( s * x + n * p ) / ( s + n );
-                product_f2 = product_f2 * ( s * x + n * q ) / ( s + n );
+                var n  = rows[i].good  + rows[i].bad;
+                var p  = ( n != 0 ) ? rows[i].bad / n : 0.5;
+                var q  = 1.0 - p;
+                var n0 = rows0[i].good + rows0[i].bad;  /// # for global stats
+                var p0 = ( n0 != 0 ) ? rows0[i].bad / n0 : 0.5;
+                var q0 = 1.0 - p0;
+                    n0 = Math.min( s0, n0 );    // limit effect of global stats
+                dump( "n0: " + n0 + "\n" );
+                dump( "p0: " + p0 + "\n" );
+                dump( "q0: " + q0 + "\n" );
+                product_f1 = product_f1 * ( s*x + n0*p0 + n*p ) / ( s + n0 + n );
+                product_f2 = product_f2 * ( s*x + n0*q0 + n*q ) / ( s + n0 + n );
                 //dump( rows[i].word + ": " + q + "\n" );
             }
 

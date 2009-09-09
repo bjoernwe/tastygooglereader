@@ -196,7 +196,7 @@ var TastyGoogleReader =
             //    if( match )
             //        words.push( match[1] );
             //}
-            words.push( item.origin.streamId );
+            //words.push( item.origin.streamId );
 
             /// extract words from title
             if( item.title ) {
@@ -292,16 +292,17 @@ var TastyGoogleReader =
             var numOfRelevantWords = prefs.getIntPref( "num_of_relevant_words" );
             
             this.getDbConn();
+            var feed_id = this.getFeedIdForItem( item );
 
             /// make sure, every keyword is present in db with default values
-            var query = "INSERT OR IGNORE INTO Words (word) VALUES('"
-                      + item.keywords.join( "'); INSERT OR IGNORE INTO Words (word) VALUES('" )
+            var query = "INSERT OR IGNORE INTO Words (feed_id,word) VALUES(" + feed_id + ",'"
+                      + item.keywords.join( "'); INSERT OR IGNORE INTO Words (feed_id,word) VALUES(" + feed_id + ",'" )
                       + "')";
             //dump( query + "\n" );
             this.dbConn.executeSimpleSQL( query );
 
             /// get relevance baseline
-            query = "SELECT MIN(5000,10000*SUM(good)/SUM(good+bad)) AS baseline FROM Words";
+            query = "SELECT MIN(5000,10000*SUM(tofu)/SUM(tofu+spam)) AS baseline FROM Words WHERE feed_id = " + feed_id;
             var statement = this.dbConn.createStatement( query );
             statement.executeStep();
             var baseline = statement.row.baseline;
@@ -317,8 +318,8 @@ var TastyGoogleReader =
             do {
 
                 /// get rating for each keyword
-                query = "SELECT word, good, bad, ABS(" + baseline + "-10000*good/(good+bad)) AS relevance FROM Words WHERE word = '"
-                      + item.keywords.slice(minWord,maxWord).join( "' OR word = '" ) + "' ORDER BY relevance DESC LIMIT " + numOfRelevantWords;
+                query = "SELECT word, tofu AS good, spam AS bad, ABS(" + baseline + "-10000*tofu/(tofu+spam)) AS relevance FROM Words WHERE feed_id = " + feed_id + " AND ( word = '"
+                      + item.keywords.slice(minWord,maxWord).join( "' OR word = '" ) + "' ) ORDER BY relevance DESC LIMIT " + numOfRelevantWords;
                 //dump( query + "\n" );
                 statement = this.dbConn.createStatement( query );
 
@@ -342,12 +343,12 @@ var TastyGoogleReader =
 
             var product_f1 = 1.0;
             var product_f2 = 1.0;
-            var s = 5.0;    // strength of a-priori information
+            var s = prefs.getIntPref( "weight_of_uncertainty" );    // strength of a-priori information (x=0.5)
             var x = 0.5;    // assumed a-priori probability for haminess
             var N = Math.min( numOfRelevantWords, rows.length );
 
             //dump( "most relevant words for '" + item.title + "':\n" );
-            for( var i = 0; i < N; i++ ) {
+            for( i = 0; i < N; i++ ) {
                 var n = rows[i].good + rows[i].bad;
                 var p = n != 0 ? rows[i].bad / n : 0.5;
                 var q = 1.0 - p;
@@ -431,6 +432,42 @@ var TastyGoogleReader =
 
 
     /**
+     * Returns the feed ID from database.
+     */
+    getFeedIdForItem: function( item ) {
+
+        try {
+
+            if( item.origin.feed_id != null )
+                return item.origin.feed_id;
+
+            this.getDbConn();
+
+            /// make sure, entry exist
+            var query = "INSERT OR IGNORE INTO Feeds VALUES ('" + item.origin.streamId + "')";
+            this.dbConn.executeSimpleSQL( query );
+
+
+            /// get feed id
+            query = "SELECT rowid FROM Feeds WHERE feed = '" + item.origin.streamId + "'";
+            var statement = this.dbConn.createStatement( query );
+            statement.executeStep();
+            item.origin.feed_id = statement.row.rowid;
+            statement.reset();
+
+            return item.origin.feed_id;
+
+        } catch(e) {
+            dump( e + ":\n" + e.stack + "\n" );
+        } finally {
+            if( statement )
+                statement.reset();
+        }
+        
+    },
+
+
+    /**
      * Returns the top.document for a given HTTP request.
      */
     getDocumentFromHttpRequest: function( aChannel ) {
@@ -509,20 +546,26 @@ var TastyGoogleReader =
                 statement.reset();
 
                 /// update database
-                if( user_version < 1 ) {
+                if( user_version < 2 ) {
                     dump( "TastyGoogleReader: Update requires a new database. The old one will be dropped. Sorry!" );
+                    query = "DROP TABLE IF EXISTS Feeds";
+                    this.dbConn.executeSimpleSQL( query );
+                    query = "CREATE TABLE 'Feeds' ( 'feed' CHAR PRIMARY KEY  NOT NULL )";
+                    this.dbConn.executeSimpleSQL( query );
                     query = "DROP TABLE IF EXISTS Words";
                     this.dbConn.executeSimpleSQL( query );
-                    query = "CREATE TABLE 'Words' ( 'word' CHAR PRIMARY KEY NOT NULL, 'good' INTEGER NOT NULL DEFAULT 0, 'bad' INTEGER NOT NULL DEFAULT 0 )";
+                    query = "CREATE TABLE 'Words' ( 'feed_id' INTEGER, 'word' CHAR NOT NULL, 'spam' INTEGER NOT NULL DEFAULT 0, 'tofu' INTEGER NOT NULL DEFAULT 0 )";
                     this.dbConn.executeSimpleSQL( query );
-                    query = "PRAGMA user_version = 1";
+                    query = "PRAGMA user_version = 2";
                     this.dbConn.executeSimpleSQL( query );
                 }
 
-                /// create table if it doesn't exist yet
-                query = "CREATE TABLE IF NOT EXISTS 'Words' ( 'word' CHAR PRIMARY KEY NOT NULL, 'good' INTEGER NOT NULL DEFAULT 0, 'bad' INTEGER NOT NULL DEFAULT 0 )";
+                /// create tables if it doesn't exist yet
+                query = "CREATE TABLE IF NOT EXISTS 'Feeds' ( 'feed' CHAR PRIMARY KEY  NOT NULL )";
                 this.dbConn.executeSimpleSQL( query );
-                query = "PRAGMA user_version = 1";
+                query = "CREATE TABLE IF NOT EXISTS 'Words' ( 'feed_id' INTEGER, 'word' CHAR NOT NULL, 'spam' INTEGER NOT NULL DEFAULT 0, 'tofu' INTEGER NOT NULL DEFAULT 0 )";
+                this.dbConn.executeSimpleSQL( query );
+                query = "PRAGMA user_version = 2";
                 this.dbConn.executeSimpleSQL( query );
                 
                 this.db_lock = false;
@@ -702,16 +745,17 @@ var TastyGoogleReader =
             dump( "* increase: " + item.keywords + "\n" );
 
             this.getDbConn();
+            var feed_id = this.getFeedIdForItem( item );
 
             /// make sure, every keyword is present in db with default values
-            var query = "INSERT OR IGNORE INTO Words (word) VALUES('"
-                      + item.keywords.join( "'); INSERT OR IGNORE INTO Words (word) VALUES('" )
+            var query = "INSERT OR IGNORE INTO Words (feed_id,word) VALUES(" + feed_id + ",'"
+                      + item.keywords.join( "'); INSERT OR IGNORE INTO Words (feed_id,word) VALUES(" + feed_id + ",'" )
                       + "')";
             this.dbConn.executeSimpleSQL( query );
 
             /// increase the counter
-            query = "UPDATE Words SET good = good + 1 WHERE word = '"
-                      + item.keywords.join( "' OR word = '" ) + "'";
+            query = "UPDATE Words SET tofu = tofu + 1 WHERE feed_id = " + feed_id + " AND ( word = '"
+                      + item.keywords.join( "' OR word = '" ) + "' )";
             this.dbConn.executeSimpleSQL( query );
 
         } catch(e) {
@@ -734,16 +778,11 @@ var TastyGoogleReader =
             dump( "* decrease: " + item.keywords + "\n" );
 
             this.getDbConn();
-
-            /// make sure, every keyword is present in db with default values
-            //var query = "INSERT OR IGNORE INTO Words (word) VALUES('"
-            //          + keywords.join( "'); INSERT OR IGNORE INTO Words (word) VALUES('" )
-            //		  + "')";
-            //this.dbConn.executeSimpleSQL( query );
+            var feed_id = this.getFeedIdForItem( item );
 
             /// update the counters
-            var query = "UPDATE Words SET good = good - 1 WHERE word = '"
-                      + item.keywords.join( "' OR word = '" ) + "'";
+            var query = "UPDATE Words SET tofu = tofu - 1 WHERE feed_id = " + feed_id + " AND ( word = '"
+                      + item.keywords.join( "' OR word = '" ) + "' )";
             this.dbConn.executeSimpleSQL( query );
 
         } catch(e) {
@@ -767,16 +806,17 @@ var TastyGoogleReader =
             dump( "* decrease: " + item.keywords + "\n" );
 
             this.getDbConn();
+            var feed_id = this.getFeedIdForItem( item );
 
             /// make sure, every keyword is present in db with default values
-            var query = "INSERT OR IGNORE INTO Words (word) VALUES('"
-                      + item.keywords.join( "'); INSERT OR IGNORE INTO Words (word) VALUES('" )
+            var query = "INSERT OR IGNORE INTO Words (feed_id,word) VALUES(" + feed_id + ",'"
+                      + item.keywords.join( "'); INSERT OR IGNORE INTO Words (feed_id,word) VALUES(" + feed_id + ",'" )
                       + "')";
             this.dbConn.executeSimpleSQL( query );
 
             /// increase the counter
-            query = "UPDATE Words SET bad = bad + 1 WHERE word = '"
-                      + item.keywords.join( "' OR word = '" ) + "'";
+            query = "UPDATE Words SET spam = spam + 1 WHERE feed_id = " + feed_id + " AND ( word = '"
+                      + item.keywords.join( "' OR word = '" ) + "' )";
             this.dbConn.executeSimpleSQL( query );
 
         } catch(e) {

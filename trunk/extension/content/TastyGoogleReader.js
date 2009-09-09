@@ -308,7 +308,8 @@ var TastyGoogleReader =
             var baseline = statement.row.baseline;
             statement.reset();
 
-            var rows = [];
+            var rows  = []; // for the db results
+            var rows0 = []; // for the 'global' db results
 
             var minWord = 0;
             var maxWord = 250;
@@ -323,8 +324,14 @@ var TastyGoogleReader =
                 //dump( query + "\n" );
                 statement = this.dbConn.createStatement( query );
 
+                /// remember all the results 'cause we want to reset the statements
                 while( statement.executeStep() ) {
+
                     rows.push( { word: statement.row.word, good: statement.row.good, bad: statement.row.bad } );
+
+                    /// okay, for every feed-specific word stats, we also want to know the global stats
+                    query = "";
+
                 }
 
                 statement.reset();
@@ -554,7 +561,7 @@ var TastyGoogleReader =
                     this.dbConn.executeSimpleSQL( query );
                     query = "DROP TABLE IF EXISTS Words";
                     this.dbConn.executeSimpleSQL( query );
-                    query = "CREATE TABLE 'Words' ( 'feed_id' INTEGER, 'word' CHAR NOT NULL, 'spam' INTEGER NOT NULL DEFAULT 0, 'tofu' INTEGER NOT NULL DEFAULT 0 )";
+                    query = "CREATE TABLE 'Words' ( 'feed_id' INTEGER, 'word' CHAR NOT NULL, 'spam' INTEGER NOT NULL DEFAULT 0, 'tofu' INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ( feed_id, word ) )";
                     this.dbConn.executeSimpleSQL( query );
                     query = "PRAGMA user_version = 2";
                     this.dbConn.executeSimpleSQL( query );
@@ -563,7 +570,7 @@ var TastyGoogleReader =
                 /// create tables if it doesn't exist yet
                 query = "CREATE TABLE IF NOT EXISTS 'Feeds' ( 'feed' CHAR PRIMARY KEY  NOT NULL )";
                 this.dbConn.executeSimpleSQL( query );
-                query = "CREATE TABLE IF NOT EXISTS 'Words' ( 'feed_id' INTEGER, 'word' CHAR NOT NULL, 'spam' INTEGER NOT NULL DEFAULT 0, 'tofu' INTEGER NOT NULL DEFAULT 0 )";
+                query = "CREATE TABLE IF NOT EXISTS 'Words' ( 'feed_id' INTEGER, 'word' CHAR NOT NULL, 'spam' INTEGER NOT NULL DEFAULT 0, 'tofu' INTEGER NOT NULL DEFAULT 0, PRIMARY KEY ( feed_id, word ) )";
                 this.dbConn.executeSimpleSQL( query );
                 query = "PRAGMA user_version = 2";
                 this.dbConn.executeSimpleSQL( query );

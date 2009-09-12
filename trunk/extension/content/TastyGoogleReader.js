@@ -198,6 +198,11 @@ var TastyGoogleReader =
             //}
             //words.push( item.origin.streamId );
 
+            /// author
+            if( item.author ) {
+                words.push( item.author );
+            }
+
             /// extract words from title
             if( item.title ) {
                 newWords = this.extractWordsFromString( this.utf8to16( item.title ) );
@@ -374,12 +379,12 @@ var TastyGoogleReader =
                 var p0 = ( n0 != 0 ) ? rows0[i].bad / n0 : 0.5;
                 var q0 = 1.0 - p0;
                     n0 = Math.min( s0, n0 );    // limit effect of global stats
-                dump( "n0: " + n0 + "\n" );
-                dump( "p0: " + p0 + "\n" );
-                dump( "q0: " + q0 + "\n" );
+                //dump( "n0: " + n0 + "\n" );
+                //dump( "p0: " + p0 + "\n" );
+                //dump( "q0: " + q0 + "\n" );
                 product_f1 = product_f1 * ( s*x + n0*p0 + n*p ) / ( s + n0 + n );
                 product_f2 = product_f2 * ( s*x + n0*q0 + n*q ) / ( s + n0 + n );
-                //dump( rows[i].word + ": " + q + "\n" );
+                dump( rows[i].word + ": " + q + "\n" );
             }
 
             var H = this.chi2P( -2*Math.log( product_f1 ), 2*N );
@@ -551,9 +556,10 @@ var TastyGoogleReader =
             }
 
             /// wait until (other) db access is finished
-            var thread = Components.classes["@mozilla.org/thread-manager;1"].getService(Components.interfaces.nsIThreadManager).currentThread;
-            while( this.db_lock )
+            do {
+                var thread = Components.classes["@mozilla.org/thread-manager;1"].getService(Components.interfaces.nsIThreadManager).currentThread;
                 thread.processNextEvent(true);
+            } while( this.db_lock )
 
             /// get connection to database
             if( this.dbConn == null ) {
@@ -955,9 +961,11 @@ var TastyGoogleReader =
             frame.webNavigation.loadURI( 'data:text/html;charset=UTF-8,' + s, Components.interfaces.nsIWebNavigation, null, null, null );
 
             /// wait until page is loaded
-            var thread = Components.classes["@mozilla.org/thread-manager;1"].getService(Components.interfaces.nsIThreadManager).currentThread;
-            while( frame.contentDocument.location.href == "about:blank" )
+            var thread = null;
+            do {
+                thread = Components.classes["@mozilla.org/thread-manager;1"].getService(Components.interfaces.nsIThreadManager).currentThread;
                 thread.processNextEvent(true);
+            } while( frame.contentDocument.location.href == "about:blank" )
 
             ///
             content = frame.contentDocument.body.textContent;
@@ -967,9 +975,10 @@ var TastyGoogleReader =
             frame.contentDocument.location.href = "about:blank";
 
             /// wait until page is unloaded
-            thread = Components.classes["@mozilla.org/thread-manager;1"].getService(Components.interfaces.nsIThreadManager).currentThread;
-            while( frame.contentDocument.location.href != "about:blank" )
+            do {
+                thread = Components.classes["@mozilla.org/thread-manager;1"].getService(Components.interfaces.nsIThreadManager).currentThread;
                 thread.processNextEvent(true);
+            } while( frame.contentDocument.location.href != "about:blank" )
             
             return this.extractWordsFromString( this.utf8to16( content ) );
 

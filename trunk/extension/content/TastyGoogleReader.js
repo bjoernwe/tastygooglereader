@@ -149,7 +149,7 @@ var TastyGoogleReader =
         try {
 
             /// set status
-            topDoc.getElementById("loading-area-text").textContent = "Thinking...";
+            //topDoc.getElementById("loading-area-text").textContent = "Thinking...";
 
             /// items...
             for( var i = 0; i < response.items.length; i++ ) {
@@ -163,9 +163,12 @@ var TastyGoogleReader =
 
                 /// modifiy title
                 response.items[i].title = "[" + response.items[i].rating.toFixed(2) + "] " + response.items[i].title;
+
+                /// set status
+                topDoc.getElementById("loading-area-text").textContent = Math.round( 100*(i+1)/response.items.length ) + "%";
             }
 
-            /// set status
+            /// set status back to original
             topDoc.getElementById("loading-area-text").textContent = "Loading...";
 
         } catch(e) {
@@ -200,7 +203,7 @@ var TastyGoogleReader =
 
             /// author
             if( item.author ) {
-                words.push( item.author );
+                words.push( "author: " + item.author );
             }
 
             /// extract words from title
